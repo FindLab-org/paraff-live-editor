@@ -162,17 +162,18 @@ function parsePitch(token: string): { pname: string; octShift: number } | null {
 }
 
 // Parse a single measure from tokens
-function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, startTimeDen: number, startClef: string): ParsedMeasure {
+// startClefsByStaff: per-staff clef state carried forward from previous measure
+function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, startTimeDen: number, startClefsByStaff: Record<number, string>): ParsedMeasure {
 	const measure: ParsedMeasure = {
 		key: startKey,
 		timeNum: startTimeNum,
 		timeDen: startTimeDen,
-		clef: startClef,
+		clef: startClefsByStaff[1] || 'Cg',  // For backward compat, measure.clef = staff 1 clef
 		staffN: 1,
 		notes: [[]],
 		dynamics: [],
-		staffClefs: { 1: startClef },  // Initialize with default clef for staff 1
-		voiceStaff: [1]                 // Voice 0 starts on staff 1
+		staffClefs: { ...startClefsByStaff },  // Copy all staff clefs from previous measure
+		voiceStaff: [1]                         // Voice 0 starts on staff 1
 	};
 
 	let currentVoice = 0;
@@ -236,6 +237,7 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 		pendingPitches = [];
 		pendingModifiers = {};
 		isGrace = false;
+		pendingStemDir = undefined;  // Reset stem direction after each note (apply once only)
 	}
 
 	for (const token of tokens) {
@@ -274,13 +276,16 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 
 		// Clef - associate with current staff
 		if (token in CLEF_SHAPES) {
-			measure.clef = token;
 			// If voice already has notes, this is a mid-measure clef change
 			if (measure.notes[currentVoice].length > 0) {
 				pendingClefChange = token;
 			} else {
 				// Initial clef for staff
 				measure.staffClefs[currentStaff] = token;
+			}
+			// Only update measure.clef if this is staff 1's clef (for backward compat)
+			if (currentStaff === 1) {
+				measure.clef = token;
 			}
 			continue;
 		}
@@ -570,7 +575,7 @@ export function parseParaff(code: string): ParsedMeasure | null {
 	}
 
 	// Parse first measure (for backward compatibility)
-	return parseMeasure(measureTokens[0], 0, 4, 4, 'Cg');
+	return parseMeasure(measureTokens[0], 0, 4, 4, { 1: 'Cg' });
 }
 
 export function parseParaffScore(code: string): ParsedScore | null {
@@ -612,17 +617,18 @@ export function parseParaffScore(code: string): ParsedScore | null {
 	let currentKey = 0;
 	let currentTimeNum = 4;
 	let currentTimeDen = 4;
-	let currentClef = 'Cg';
+	let currentClefsByStaff: Record<number, string> = { 1: 'Cg' };  // Per-staff clef tracking
 
 	for (const mTokens of measureTokens) {
-		const measure = parseMeasure(mTokens, currentKey, currentTimeNum, currentTimeDen, currentClef);
+		const measure = parseMeasure(mTokens, currentKey, currentTimeNum, currentTimeDen, currentClefsByStaff);
 		measures.push(measure);
 
 		// Carry context forward
 		currentKey = measure.key;
 		currentTimeNum = measure.timeNum;
 		currentTimeDen = measure.timeDen;
-		currentClef = measure.clef;
+		// Update per-staff clefs from this measure (preserves clef state for each staff)
+		currentClefsByStaff = { ...currentClefsByStaff, ...measure.staffClefs };
 	}
 
 	return { measures };
@@ -677,6 +683,16 @@ function buildNoteElement(pitch: ParsedPitch, dur: string, note: ParsedNote, ind
 
 	if (artics.length > 0) {
 		result += `${indent}    <artic artic="${artics.join(' ')}" />\n`;
+	}
+
+	// Fermata
+	if (note.fermata) {
+		result += `${indent}    <fermata xml:id="${generateId('fermata')}" />\n`;
+	}
+
+	// Trill (ornament)
+	if (note.trill) {
+		result += `${indent}    <trill xml:id="${generateId('trill')}" />\n`;
 	}
 
 	result += `${indent}</note>\n`;
@@ -743,6 +759,16 @@ function noteToMEI(note: ParsedNote, indent: string, layerStaff?: number): strin
 
 	if (artics.length > 0) {
 		result += `${indent}    <artic artic="${artics.join(' ')}" />\n`;
+	}
+
+	// Fermata at chord level
+	if (note.fermata) {
+		result += `${indent}    <fermata xml:id="${generateId('fermata')}" />\n`;
+	}
+
+	// Trill at chord level
+	if (note.trill) {
+		result += `${indent}    <trill xml:id="${generateId('trill')}" />\n`;
 	}
 
 	result += `${indent}</chord>\n`;
