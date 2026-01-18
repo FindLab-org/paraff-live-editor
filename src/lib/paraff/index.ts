@@ -197,6 +197,7 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 
 	// Finalize pending pitches into a note/chord
 	function finalizePendingPitches(dur: number) {
+		lastDur = dur;  // Always update lastDur, even with no pending pitches
 		if (pendingPitches.length === 0) return;
 
 		const note: ParsedNote = {
@@ -225,7 +226,6 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 		pendingPitches = [];
 		pendingModifiers = {};
 		isGrace = false;
-		lastDur = dur;
 	}
 
 	for (const token of tokens) {
@@ -625,6 +625,13 @@ function buildNoteElement(pitch: ParsedPitch, dur: string, note: ParsedNote, ind
 	if (!inChord && note.grace) attrs += ` grace="unacc"`;
 	if (!inChord && note.tie) attrs += ` tie="${note.tie}"`;
 	if (!inChord && note.stemDir) attrs += ` stem.dir="${note.stemDir}"`;
+	// Slur: "i" = initial (start), "t" = terminal (end), "i t" = both
+	if (!inChord) {
+		const slurParts: string[] = [];
+		if (note.slurStart) slurParts.push('i');
+		if (note.slurEnd) slurParts.push('t');
+		if (slurParts.length > 0) attrs += ` slur="${slurParts.join(' ')}"`;
+	}
 
 	// Check if we need child elements (only for non-chord notes)
 	const hasChildren = !inChord && (note.fermata || note.trill || note.staccato || note.accent || note.tenuto || note.marcato);
@@ -670,6 +677,11 @@ function noteToMEI(note: ParsedNote, indent: string): string {
 	if (note.grace) chordAttrs += ` grace="unacc"`;
 	if (note.tie) chordAttrs += ` tie="${note.tie}"`;
 	if (note.stemDir) chordAttrs += ` stem.dir="${note.stemDir}"`;
+	// Slur for chord: "i" = initial (start), "t" = terminal (end)
+	const chordSlurParts: string[] = [];
+	if (note.slurStart) chordSlurParts.push('i');
+	if (note.slurEnd) chordSlurParts.push('t');
+	if (chordSlurParts.length > 0) chordAttrs += ` slur="${chordSlurParts.join(' ')}"`;
 
 	let result = `${indent}<chord ${chordAttrs}>\n`;
 
@@ -784,13 +796,13 @@ export function scoreToMEI(score: ParsedScore): string {
 	const firstMeasure = score.measures[0];
 	const keySig = KEYS[firstMeasure.key] || '0';
 
-	// Determine max staff count across all measures
+	// Determine max staff count across all measures and collect clefs per staff
 	let maxStaffN = 1;
-	const staffClefs: Record<number, string> = { 1: firstMeasure.clef };
+	const staffClefs: Record<number, string> = {};
 
 	for (const measure of score.measures) {
 		maxStaffN = Math.max(maxStaffN, measure.staffN);
-		// Collect clefs from each staff
+		// Collect clefs from each staff (use first occurrence)
 		for (const [staffNum, clef] of Object.entries(measure.staffClefs)) {
 			const sn = parseInt(staffNum);
 			if (!staffClefs[sn]) {
