@@ -178,8 +178,12 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 
 	let currentVoice = 0;
 	let currentStaff = 1;  // Track current staff number
-	let currentOct = 4;
 	let lastDur = 4; // last used duration (for notes without explicit duration)
+
+	// Relative pitch tracking - tracks position in pitch space
+	// step: 0-6 for c-b, octave: current octave
+	const PITCH_STEPS: Record<string, number> = { c: 0, d: 1, e: 2, f: 3, g: 4, a: 5, b: 6 };
+	let pitchEnv = { step: 0, octave: 4 };  // Start at C4
 	let isGrace = false;
 	let pendingBeam: 'i' | 'm' | null = null;
 	let pendingSlurStart = false;
@@ -290,22 +294,24 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 			continue;
 		}
 
-		// Octave shifts - apply to pending pitches or current octave
+		// Octave shifts - apply to pending pitches or pitch environment
 		if (token === 'Osup') {
 			if (pendingPitches.length > 0) {
-				// Apply to last pending pitch
+				// Apply to last pending pitch and update environment
 				pendingPitches[pendingPitches.length - 1].oct++;
+				pitchEnv.octave++;
 			} else {
-				currentOct++;
+				pitchEnv.octave++;
 			}
 			continue;
 		}
 		if (token === 'Osub') {
 			if (pendingPitches.length > 0) {
-				// Apply to last pending pitch
+				// Apply to last pending pitch and update environment
 				pendingPitches[pendingPitches.length - 1].oct--;
+				pitchEnv.octave--;
 			} else {
-				currentOct--;
+				pitchEnv.octave--;
 			}
 			continue;
 		}
@@ -322,7 +328,8 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 			measure.notes[currentVoice] = [];
 			// New voice inherits current staff until S# is seen
 			measure.voiceStaff[currentVoice] = currentStaff;
-			currentOct = 4;
+			// Reset pitch environment for new voice
+			pitchEnv = { step: 0, octave: 4 };
 			isGrace = false;
 			pendingBeam = null;
 			pendingSlurStart = false;
@@ -340,7 +347,7 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 		if (token === 'Rest' || token === 'RSpace') {
 			finalizePendingPitches(lastDur);
 			const restNote: ParsedNote = {
-				pitches: [{ pname: 'c', oct: currentOct }],
+				pitches: [{ pname: 'c', oct: pitchEnv.octave }],
 				dur: DURATION_VALUES[lastDur] || '4',
 				rest: true,
 				grace: isGrace,
@@ -513,12 +520,24 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 			continue;
 		}
 
-		// Pitch - add to pending pitches
+		// Pitch - add to pending pitches with relative pitch calculation
 		const pitch = parsePitch(token);
 		if (pitch) {
+			const step = PITCH_STEPS[pitch.pname];
+			const interval = step - pitchEnv.step;
+
+			// Calculate octave increment based on interval
+			// When interval is large (>= 4 or <= -4), adjust octave in opposite direction
+			// This handles cases like b->c (interval -6) which should go UP an octave
+			const octInc = Math.floor(Math.abs(interval) / 4) * -Math.sign(interval);
+
+			// Update pitch environment
+			pitchEnv.octave += pitch.octShift + octInc;
+			pitchEnv.step = step;
+
 			pendingPitches.push({
 				pname: pitch.pname,
-				oct: currentOct + pitch.octShift
+				oct: pitchEnv.octave
 			});
 			continue;
 		}
