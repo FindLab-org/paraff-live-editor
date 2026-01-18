@@ -54,6 +54,17 @@ const EXPRESSIVE_MARKS = [
 	'EsusOn', 'EsusOff'
 ];
 
+// Dynamic character to word mapping
+// These map to standard dynamic markings in MEI
+const DYNAMIC_WORDS_MAP: Record<string, string> = {
+	'f': 'f',     // forte
+	'p': 'p',     // piano
+	'm': 'm',     // mezzo (combined with f/p)
+	'r': 'r',     // rinforzando
+	's': 's',     // sforzando
+	'z': 'z'      // forzando
+};
+
 interface ParsedPitch {
 	pname: string;
 	oct: number;
@@ -851,9 +862,26 @@ ${staffDefs}                        </staffGrp>
 		voices.forEach((v, layerIdx) => {
 			mei += `                                <layer xml:id="${generateId('layer')}" n="${layerIdx + 1}">\n`;
 
-			v.notes.forEach((note) => {
+			// Get dynamics for this voice
+			const voiceDynamics = measure.dynamics?.filter(d => d.voiceIdx === v.voiceIdx) || [];
+
+			v.notes.forEach((note, noteIdx) => {
+				// Output dynamics that appear before this note
+				const dynamicsHere = voiceDynamics.filter(d => d.noteIdx === noteIdx);
+				for (const dyn of dynamicsHere) {
+					const dynWord = DYNAMIC_WORDS_MAP[dyn.type] || dyn.type;
+					mei += `${indent}<dynam xml:id="${generateId('dynam')}">${dynWord}</dynam>\n`;
+				}
+
 				mei += noteToMEI(note, indent, s);  // Pass layer staff for cross-staff detection
 			});
+
+			// Output dynamics that appear after all notes (at the end)
+			const dynamicsAtEnd = voiceDynamics.filter(d => d.noteIdx >= v.notes.length);
+			for (const dyn of dynamicsAtEnd) {
+				const dynWord = DYNAMIC_WORDS_MAP[dyn.type] || dyn.type;
+				mei += `${indent}<dynam xml:id="${generateId('dynam')}">${dynWord}</dynam>\n`;
+			}
 
 			mei += `                                </layer>\n`;
 		});
@@ -953,9 +981,26 @@ ${staffDefs}                        </staffGrp>
 			voices.forEach((v, layerIdx) => {
 				mei += `                                <layer xml:id="${generateId('layer')}" n="${layerIdx + 1}">\n`;
 
-				v.notes.forEach((note) => {
+				// Get dynamics for this voice
+				const voiceDynamics = measure.dynamics?.filter(d => d.voiceIdx === v.voiceIdx) || [];
+
+				v.notes.forEach((note, noteIdx) => {
+					// Output dynamics that appear before this note
+					const dynamicsHere = voiceDynamics.filter(d => d.noteIdx === noteIdx);
+					for (const dyn of dynamicsHere) {
+						const dynWord = DYNAMIC_WORDS_MAP[dyn.type] || dyn.type;
+						mei += `${indent}<dynam xml:id="${generateId('dynam')}">${dynWord}</dynam>\n`;
+					}
+
 					mei += noteToMEI(note, indent, s);  // Pass layer staff for cross-staff detection
 				});
+
+				// Output dynamics that appear after all notes (at the end)
+				const dynamicsAtEnd = voiceDynamics.filter(d => d.noteIdx >= v.notes.length);
+				for (const dyn of dynamicsAtEnd) {
+					const dynWord = DYNAMIC_WORDS_MAP[dyn.type] || dyn.type;
+					mei += `${indent}<dynam xml:id="${generateId('dynam')}">${dynWord}</dynam>\n`;
+				}
 
 				mei += `                                </layer>\n`;
 			});
