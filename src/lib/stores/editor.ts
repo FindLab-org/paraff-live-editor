@@ -11,8 +11,10 @@ export interface EditorState {
 }
 
 const initialState: EditorState = {
-	code: `BOM K0 TN4 TD4 S1 Cg c D4 d e f g D2 a Dot b D4 Osup c EOM
-BOM c D8 d e f g a b Osup c D2 EOM`,
+	code: `BOM K1 TN3 TD4 S1 Cg Md d Osup D4 EDp EslurL Mu g Osub D8 Bl a D8 b D8 c D8 Br VB S2 Cf Md g b d D2 a D4 EOM
+BOM K1 TN3 TD4 S1 Cg Md d Osup D4 EslurR Mu g Osub D4 Est g D4 Est VB S2 Cf Md b D2 Dot EOM
+BOM K1 TN3 TD4 S1 Cg Mu f As D4 EslurL g D8 Bl a D8 b D8 g D8 Br VB S2 Cf Md d D4 b D4 g D4 EOM
+BOM K1 TN3 TD4 S1 Cg Mu b d g D2 Dot VB S2 Cf Md g D2 Dot EOM`,
 	error: null,
 	mei: null,
 	svg: null,
