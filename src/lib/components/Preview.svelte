@@ -6,6 +6,38 @@
 	$: if (svgContainer && $editorStore.svg) {
 		svgContainer.innerHTML = $editorStore.svg;
 	}
+
+	function downloadFile(content: string, filename: string, mimeType: string) {
+		const blob = new Blob([content], { type: mimeType });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = filename;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+	}
+
+	function exportSVG() {
+		if ($editorStore.svg) {
+			downloadFile($editorStore.svg, 'paraff-score.svg', 'image/svg+xml');
+		}
+	}
+
+	function exportMEI() {
+		if ($editorStore.mei) {
+			downloadFile($editorStore.mei, 'paraff-score.mei', 'application/xml');
+		}
+	}
+
+	function copyMEI() {
+		if ($editorStore.mei) {
+			navigator.clipboard.writeText($editorStore.mei).then(() => {
+				// Could add a toast notification here
+			});
+		}
+	}
 </script>
 
 <div class="preview-wrapper">
@@ -17,6 +49,18 @@
 		{#if $editorStore.isRendering}
 			<span class="rendering">Rendering...</span>
 		{/if}
+		<div class="spacer"></div>
+		<div class="export-buttons">
+			<button class="export-btn" on:click={exportSVG} disabled={!$editorStore.svg} title="Download SVG">
+				SVG
+			</button>
+			<button class="export-btn" on:click={exportMEI} disabled={!$editorStore.mei} title="Download MEI">
+				MEI
+			</button>
+			<button class="export-btn" on:click={copyMEI} disabled={!$editorStore.mei} title="Copy MEI to clipboard">
+				Copy
+			</button>
+		</div>
 	</div>
 
 	<div class="preview-container">
@@ -126,5 +170,39 @@
 		color: #858585;
 		text-align: center;
 		padding: 40px;
+	}
+
+	.spacer {
+		flex: 1;
+	}
+
+	.export-buttons {
+		display: flex;
+		gap: 8px;
+	}
+
+	.export-btn {
+		background: #0e639c;
+		color: #ffffff;
+		border: none;
+		padding: 4px 12px;
+		border-radius: 3px;
+		font-size: 12px;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+
+	.export-btn:hover:not(:disabled) {
+		background: #1177bb;
+	}
+
+	.export-btn:disabled {
+		background: #3c3c3c;
+		color: #858585;
+		cursor: not-allowed;
+	}
+
+	.export-btn:active:not(:disabled) {
+		background: #094771;
 	}
 </style>

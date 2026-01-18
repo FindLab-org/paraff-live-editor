@@ -5,13 +5,23 @@
 	import Preview from '$lib/components/Preview.svelte';
 	import { editorStore } from '$lib/stores/editor';
 	import { paraffToMEI } from '$lib/paraff';
+	import { getStateFromUrl, copyShareUrl } from '$lib/utils/share';
 
 	let verovioReady = false;
 	let toolkit: any = null;
+	let shareStatus: 'idle' | 'copied' | 'error' = 'idle';
 
 	// Watch for code changes and re-render
 	$: if (browser && verovioReady && $editorStore.code) {
 		renderScore($editorStore.code);
+	}
+
+	async function handleShare() {
+		const success = await copyShareUrl({ code: $editorStore.code });
+		shareStatus = success ? 'copied' : 'error';
+		setTimeout(() => {
+			shareStatus = 'idle';
+		}, 2000);
 	}
 
 	async function initVerovio() {
@@ -76,6 +86,12 @@
 
 	onMount(() => {
 		if (browser) {
+			// Load state from URL if present
+			const urlState = getStateFromUrl();
+			if (urlState?.code) {
+				editorStore.setCode(urlState.code);
+			}
+
 			initVerovio();
 		}
 	});
@@ -88,13 +104,24 @@
 <div class="app">
 	<header>
 		<h1>Paraff Live Editor</h1>
-		<span class="status">
-			{#if !verovioReady}
-				Loading Verovio...
-			{:else}
-				Ready
-			{/if}
-		</span>
+		<div class="header-actions">
+			<button class="share-btn" on:click={handleShare}>
+				{#if shareStatus === 'copied'}
+					Copied!
+				{:else if shareStatus === 'error'}
+					Error
+				{:else}
+					Share
+				{/if}
+			</button>
+			<span class="status">
+				{#if !verovioReady}
+					Loading Verovio...
+				{:else}
+					Ready
+				{/if}
+			</span>
+		</div>
 	</header>
 
 	<main>
@@ -142,6 +169,32 @@
 		font-size: 18px;
 		font-weight: 600;
 		color: #ffffff;
+	}
+
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+
+	.share-btn {
+		background: #0e639c;
+		color: #ffffff;
+		border: none;
+		padding: 6px 16px;
+		border-radius: 3px;
+		font-size: 13px;
+		cursor: pointer;
+		transition: background 0.2s;
+		min-width: 80px;
+	}
+
+	.share-btn:hover {
+		background: #1177bb;
+	}
+
+	.share-btn:active {
+		background: #094771;
 	}
 
 	.status {

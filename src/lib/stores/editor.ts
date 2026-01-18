@@ -11,7 +11,8 @@ export interface EditorState {
 }
 
 const initialState: EditorState = {
-	code: `BOM K0 TN4 TD4 S1 Cg c D1 EOM`,
+	code: `BOM K0 TN4 TD4 S1 Cg c D4 d e f g D2 a Dot b D4 Osup c EOM
+BOM c D8 d e f g a b Osup c D2 EOM`,
 	error: null,
 	mei: null,
 	svg: null,
