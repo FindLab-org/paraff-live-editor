@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { editorStore } from '$lib/stores/editor';
+	import Player from './Player.svelte';
 
 	let svgContainer: HTMLDivElement;
 
@@ -77,6 +78,11 @@
 			</div>
 		{/if}
 	</div>
+
+	<!-- Player controls at bottom -->
+	{#if $editorStore.svg && !$editorStore.error}
+		<Player />
+	{/if}
 </div>
 
 <style>
