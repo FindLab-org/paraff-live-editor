@@ -78,6 +78,8 @@ interface ParsedNote {
 	accent?: boolean;
 	tenuto?: boolean;
 	marcato?: boolean;
+	staff?: number;         // Cross-staff: note rendered on different staff than its voice
+	clefBefore?: string;    // Clef change: output <clef> element before this note
 }
 
 // Legacy interface for backward compatibility
@@ -181,6 +183,7 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 	let pendingBeam: 'i' | 'm' | null = null;
 	let pendingSlurStart = false;
 	let pendingStemDir: 'up' | 'down' | undefined = undefined;
+	let pendingClefChange: string | undefined = undefined;  // Clef change to output before next note
 
 	// Pending pitches for chord building
 	let pendingPitches: ParsedPitch[] = [];
@@ -205,6 +208,7 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 			dur: DURATION_VALUES[dur] || '4',
 			grace: isGrace,
 			stemDir: pendingStemDir,
+			staff: currentStaff,  // Track staff for cross-staff support
 			...pendingModifiers
 		};
 
@@ -218,6 +222,12 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 		if (pendingSlurStart) {
 			note.slurStart = true;
 			pendingSlurStart = false;
+		}
+
+		// Apply pending clef change (for mid-measure clef changes)
+		if (pendingClefChange) {
+			note.clefBefore = pendingClefChange;
+			pendingClefChange = undefined;
 		}
 
 		measure.notes[currentVoice].push(note);
@@ -254,15 +264,24 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 		if (staff !== null) {
 			currentStaff = staff;
 			measure.staffN = Math.max(measure.staffN, staff);
-			// Update current voice's staff assignment
-			measure.voiceStaff[currentVoice] = staff;
+			// Only set voice's primary staff if voice has no notes yet
+			// (subsequent S# tokens are for cross-staff notes within the same voice)
+			if (measure.notes[currentVoice].length === 0) {
+				measure.voiceStaff[currentVoice] = staff;
+			}
 			continue;
 		}
 
 		// Clef - associate with current staff
 		if (token in CLEF_SHAPES) {
 			measure.clef = token;
-			measure.staffClefs[currentStaff] = token;
+			// If voice already has notes, this is a mid-measure clef change
+			if (measure.notes[currentVoice].length > 0) {
+				pendingClefChange = token;
+			} else {
+				// Initial clef for staff
+				measure.staffClefs[currentStaff] = token;
+			}
 			continue;
 		}
 
@@ -320,7 +339,8 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 				dur: DURATION_VALUES[lastDur] || '4',
 				rest: true,
 				grace: isGrace,
-				stemDir: pendingStemDir
+				stemDir: pendingStemDir,
+				staff: currentStaff  // Track staff for cross-staff support
 			};
 			measure.notes[currentVoice].push(restNote);
 			isGrace = false;
@@ -615,7 +635,8 @@ function generateId(prefix: string): string {
 }
 
 // Helper to build a single note element
-function buildNoteElement(pitch: ParsedPitch, dur: string, note: ParsedNote, indent: string, inChord: boolean): string {
+// layerStaff: the staff number this note's layer belongs to (for cross-staff detection)
+function buildNoteElement(pitch: ParsedPitch, dur: string, note: ParsedNote, indent: string, inChord: boolean, layerStaff?: number): string {
 	let attrs = `xml:id="${generateId('note')}" pname="${pitch.pname}" oct="${pitch.oct}"`;
 	if (!inChord) {
 		attrs += ` dur="${dur}"`;
@@ -625,6 +646,10 @@ function buildNoteElement(pitch: ParsedPitch, dur: string, note: ParsedNote, ind
 	if (!inChord && note.grace) attrs += ` grace="unacc"`;
 	if (!inChord && note.tie) attrs += ` tie="${note.tie}"`;
 	if (!inChord && note.stemDir) attrs += ` stem.dir="${note.stemDir}"`;
+	// Cross-staff: add staff attribute if note is on different staff than its layer
+	if (!inChord && layerStaff && note.staff && note.staff !== layerStaff) {
+		attrs += ` staff="${note.staff}"`;
+	}
 	// Slur: "i" = initial (start), "t" = terminal (end), "i t" = both
 	if (!inChord) {
 		const slurParts: string[] = [];
@@ -659,16 +684,31 @@ function buildNoteElement(pitch: ParsedPitch, dur: string, note: ParsedNote, ind
 	return result;
 }
 
-function noteToMEI(note: ParsedNote, indent: string): string {
+// layerStaff: the staff number this note's layer belongs to (for cross-staff detection)
+function noteToMEI(note: ParsedNote, indent: string, layerStaff?: number): string {
+	let clefOutput = '';
+
+	// Output clef change if needed (mid-measure clef change)
+	if (note.clefBefore) {
+		const clefInfo = CLEF_SHAPES[note.clefBefore];
+		if (clefInfo) {
+			clefOutput = `${indent}<clef xml:id="${generateId('clef')}" shape="${clefInfo.shape}" line="${clefInfo.line}" />\n`;
+		}
+	}
+
 	if (note.rest) {
 		let attrs = `xml:id="${generateId('rest')}" dur="${note.dur}"`;
 		if (note.dots) attrs += ` dots="${note.dots}"`;
-		return `${indent}<rest ${attrs} />\n`;
+		// Cross-staff: add staff attribute if rest is on different staff than its layer
+		if (layerStaff && note.staff && note.staff !== layerStaff) {
+			attrs += ` staff="${note.staff}"`;
+		}
+		return clefOutput + `${indent}<rest ${attrs} />\n`;
 	}
 
 	// Single note
 	if (note.pitches.length === 1) {
-		return buildNoteElement(note.pitches[0], note.dur, note, indent, false);
+		return clefOutput + buildNoteElement(note.pitches[0], note.dur, note, indent, false, layerStaff);
 	}
 
 	// Chord - multiple pitches
@@ -677,6 +717,10 @@ function noteToMEI(note: ParsedNote, indent: string): string {
 	if (note.grace) chordAttrs += ` grace="unacc"`;
 	if (note.tie) chordAttrs += ` tie="${note.tie}"`;
 	if (note.stemDir) chordAttrs += ` stem.dir="${note.stemDir}"`;
+	// Cross-staff: add staff attribute if chord is on different staff than its layer
+	if (layerStaff && note.staff && note.staff !== layerStaff) {
+		chordAttrs += ` staff="${note.staff}"`;
+	}
 	// Slur for chord: "i" = initial (start), "t" = terminal (end)
 	const chordSlurParts: string[] = [];
 	if (note.slurStart) chordSlurParts.push('i');
@@ -687,7 +731,7 @@ function noteToMEI(note: ParsedNote, indent: string): string {
 
 	// Add each note in the chord
 	for (const pitch of note.pitches) {
-		result += buildNoteElement(pitch, note.dur, note, indent + '    ', true);
+		result += buildNoteElement(pitch, note.dur, note, indent + '    ', true, layerStaff);
 	}
 
 	// Articulations at chord level
@@ -703,7 +747,7 @@ function noteToMEI(note: ParsedNote, indent: string): string {
 
 	result += `${indent}</chord>\n`;
 
-	return result;
+	return clefOutput + result;
 }
 
 export function toMEI(measure: ParsedMeasure): string {
@@ -763,7 +807,7 @@ ${staffDefs}                        </staffGrp>
 			mei += `                                <layer xml:id="${generateId('layer')}" n="${layerIdx + 1}">\n`;
 
 			v.notes.forEach((note) => {
-				mei += noteToMEI(note, indent);
+				mei += noteToMEI(note, indent, s);  // Pass layer staff for cross-staff detection
 			});
 
 			mei += `                                </layer>\n`;
@@ -865,7 +909,7 @@ ${staffDefs}                        </staffGrp>
 				mei += `                                <layer xml:id="${generateId('layer')}" n="${layerIdx + 1}">\n`;
 
 				v.notes.forEach((note) => {
-					mei += noteToMEI(note, indent);
+					mei += noteToMEI(note, indent, s);  // Pass layer staff for cross-staff detection
 				});
 
 				mei += `                                </layer>\n`;
