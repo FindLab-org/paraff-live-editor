@@ -55,7 +55,7 @@ ${t}                        </staffGrp>
             </mdiv>
         </body>
     </music>
-</mei>`,n}function tk(i){if(Na=0,i.measures.length===0)return"";const e=i.measures[0],t=Wp[e.key]||"0";let n=1;const s={1:e.clef};for(const a of i.measures){n=Math.max(n,a.staffN);for(const[h,c]of Object.entries(a.staffClefs)){const f=parseInt(h);s[f]||(s[f]=c)}}let r="";for(let a=1;a<=n;a++){const h=s[a]||"Cg",c=Jn[h]||Jn.Cg;r+=`                            <staffDef xml:id="${le("staffdef")}" n="${a}" lines="5" clef.shape="${c.shape}" clef.line="${c.line}" />
+</mei>`,n}function tk(i){if(Na=0,i.measures.length===0)return"";const e=i.measures[0],t=Wp[e.key]||"0";let n=1;const s={};for(const a of i.measures){n=Math.max(n,a.staffN);for(const[h,c]of Object.entries(a.staffClefs)){const f=parseInt(h);s[f]||(s[f]=c)}}let r="";for(let a=1;a<=n;a++){const h=s[a]||"Cg",c=Jn[h]||Jn.Cg;r+=`                            <staffDef xml:id="${le("staffdef")}" n="${a}" lines="5" clef.shape="${c.shape}" clef.line="${c.line}" />
 `}let o=`<?xml version="1.0" encoding="UTF-8"?>
 <mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="5.0">
     <meiHead>
