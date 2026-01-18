@@ -89,6 +89,12 @@ interface ParsedNote {
 	accent?: boolean;
 	tenuto?: boolean;
 	marcato?: boolean;
+	arpeggio?: boolean;
+	turn?: boolean;
+	mordent?: boolean;
+	sforzando?: boolean;
+	staccatissimo?: boolean;
+	portato?: boolean;
 	staff?: number;         // Cross-staff: note rendered on different staff than its voice
 	clefBefore?: string;    // Clef change: output <clef> element before this note
 }
@@ -519,6 +525,73 @@ function parseMeasure(tokens: string[], startKey: number, startTimeNum: number, 
 			}
 			continue;
 		}
+		if (token === 'Earp') {
+			if (pendingPitches.length > 0) {
+				pendingModifiers.arpeggio = true;
+			} else {
+				const voice = measure.notes[currentVoice];
+				if (voice.length > 0) {
+					voice[voice.length - 1].arpeggio = true;
+				}
+			}
+			continue;
+		}
+		if (token === 'Eturn') {
+			if (pendingPitches.length > 0) {
+				pendingModifiers.turn = true;
+			} else {
+				const voice = measure.notes[currentVoice];
+				if (voice.length > 0) {
+					voice[voice.length - 1].turn = true;
+				}
+			}
+			continue;
+		}
+		if (token === 'Emor') {
+			if (pendingPitches.length > 0) {
+				pendingModifiers.mordent = true;
+			} else {
+				const voice = measure.notes[currentVoice];
+				if (voice.length > 0) {
+					voice[voice.length - 1].mordent = true;
+				}
+			}
+			continue;
+		}
+		if (token === 'Esf') {
+			if (pendingPitches.length > 0) {
+				pendingModifiers.sforzando = true;
+			} else {
+				const voice = measure.notes[currentVoice];
+				if (voice.length > 0) {
+					voice[voice.length - 1].sforzando = true;
+				}
+			}
+			continue;
+		}
+		if (token === 'Estm') {
+			if (pendingPitches.length > 0) {
+				pendingModifiers.staccatissimo = true;
+			} else {
+				const voice = measure.notes[currentVoice];
+				if (voice.length > 0) {
+					voice[voice.length - 1].staccatissimo = true;
+				}
+			}
+			continue;
+		}
+		if (token === 'Epor') {
+			if (pendingPitches.length > 0) {
+				pendingModifiers.portato = true;
+			} else {
+				const voice = measure.notes[currentVoice];
+				if (voice.length > 0) {
+					voice[voice.length - 1].portato = true;
+				}
+			}
+			continue;
+		}
+
 
 		// Dynamics
 		if (token.startsWith('ED')) {
@@ -695,7 +768,7 @@ function buildNoteElement(pitch: ParsedPitch, dur: string, note: ParsedNote, ind
 	}
 
 	// Check if we need child elements (only for non-chord notes)
-	const hasChildren = !inChord && (note.fermata || note.trill || note.staccato || note.accent || note.tenuto || note.marcato);
+	const hasChildren = !inChord && (note.fermata || note.trill || note.staccato || note.accent || note.tenuto || note.marcato || note.arpeggio || note.turn || note.mordent || note.sforzando || note.staccatissimo || note.portato);
 
 	if (!hasChildren) {
 		return `${indent}<note ${attrs} />\n`;
@@ -710,6 +783,8 @@ function buildNoteElement(pitch: ParsedPitch, dur: string, note: ParsedNote, ind
 	if (note.accent) artics.push('acc');
 	if (note.tenuto) artics.push('ten');
 	if (note.marcato) artics.push('marc');
+	if (note.staccatissimo) artics.push('staccatissimo');
+	if (note.portato) artics.push('ten-stacc');
 
 	if (artics.length > 0) {
 		result += `${indent}    <artic artic="${artics.join(' ')}" />\n`;
@@ -723,6 +798,26 @@ function buildNoteElement(pitch: ParsedPitch, dur: string, note: ParsedNote, ind
 	// Trill (ornament)
 	if (note.trill) {
 		result += `${indent}    <trill xml:id="${generateId('trill')}" />\n`;
+	}
+
+	// Arpeggio
+	if (note.arpeggio) {
+		result += `${indent}    <arpeg xml:id="${generateId('arpeg')}" />\n`;
+	}
+
+	// Turn (ornament)
+	if (note.turn) {
+		result += `${indent}    <turn xml:id="${generateId('turn')}" />\n`;
+	}
+
+	// Mordent (ornament)
+	if (note.mordent) {
+		result += `${indent}    <mordent xml:id="${generateId('mordent')}" />\n`;
+	}
+
+	// Sforzando (as dynamic marking)
+	if (note.sforzando) {
+		result += `${indent}    <dynam xml:id="${generateId('dynam')}"  >sf</dynam>\n`;
 	}
 
 	result += `${indent}</note>\n`;
@@ -786,6 +881,8 @@ function noteToMEI(note: ParsedNote, indent: string, layerStaff?: number): strin
 	if (note.accent) artics.push('acc');
 	if (note.tenuto) artics.push('ten');
 	if (note.marcato) artics.push('marc');
+	if (note.staccatissimo) artics.push('staccatissimo');
+	if (note.portato) artics.push('ten-stacc');
 
 	if (artics.length > 0) {
 		result += `${indent}    <artic artic="${artics.join(' ')}" />\n`;
@@ -799,6 +896,26 @@ function noteToMEI(note: ParsedNote, indent: string, layerStaff?: number): strin
 	// Trill at chord level
 	if (note.trill) {
 		result += `${indent}    <trill xml:id="${generateId('trill')}" />\n`;
+	}
+
+	// Arpeggio
+	if (note.arpeggio) {
+		result += `${indent}    <arpeg xml:id="${generateId('arpeg')}" />\n`;
+	}
+
+	// Turn (ornament)
+	if (note.turn) {
+		result += `${indent}    <turn xml:id="${generateId('turn')}" />\n`;
+	}
+
+	// Mordent (ornament)
+	if (note.mordent) {
+		result += `${indent}    <mordent xml:id="${generateId('mordent')}" />\n`;
+	}
+
+	// Sforzando (as dynamic marking)
+	if (note.sforzando) {
+		result += `${indent}    <dynam xml:id="${generateId('dynam')}"  >sf</dynam>\n`;
 	}
 
 	result += `${indent}</chord>\n`;
