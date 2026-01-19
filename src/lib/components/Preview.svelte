@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { editorStore } from '$lib/stores/editor';
-	import Player from './Player.svelte';
+	import Player from './PlayerV2.svelte';
 
 	let svgContainer: HTMLDivElement;
 

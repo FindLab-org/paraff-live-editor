@@ -1,125 +1,117 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { editorStore } from '$lib/stores/editor';
 	import { getToolkit } from '$lib/verovio/toolkit';
-	import MidiPlayer from '$lib/music-widgets/MidiPlayer';
-	import * as MIDI from '$lib/music-widgets/MIDI';
+	import { MIDI, MusicNotation, MidiPlayer, MidiAudio } from '@k-l-lambda/music-widgets';
 
 	let isPlaying = false;
 	let currentTime = 0;
 	let duration = 0;
-	let player: MidiPlayer | null = null;
-	let midiAudio: any = null;
+	let midiPlayer: any = null;
+	let midiNotation: any = null;
+	let isAudioLoaded = false;
+
+	onMount(async () => {
+		try {
+			await MidiAudio.loadPlugin({
+				soundfontUrl: 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/',
+				api: 'webaudio'
+			});
+			isAudioLoaded = true;
+			console.log('MidiAudio loaded');
+		} catch (error) {
+			console.error('Failed to load MidiAudio:', error);
+		}
+	});
 
 	async function initPlayer() {
-		if (!$editorStore.mei) return;
+		if (!$editorStore.mei || !isAudioLoaded) return;
 
 		try {
 			const toolkit = getToolkit();
 			if (!toolkit) return;
 
-			// Get MIDI data from Verovio
 			const midiBase64 = toolkit.renderToMIDI();
-			
-			// Convert base64 to ArrayBuffer
 			const binaryString = atob(midiBase64);
 			const bytes = new Uint8Array(binaryString.length);
 			for (let i = 0; i < binaryString.length; i++) {
 				bytes[i] = binaryString.charCodeAt(i);
 			}
 
-			// Parse MIDI
-			const midi = MIDI.parseMidiData(bytes.buffer);
+			const midiData = MIDI.parseMidiData(bytes.buffer);
+			midiNotation = MusicNotation.Notation.parseMidi(midiData);
 			
-			// Initialize MidiAudio if not already done
-			if (!midiAudio) {
-				const { default: MidiAudio } = await import('$lib/music-widgets/MidiAudio');
-				midiAudio = new MidiAudio();
-				await midiAudio.loadPlugin();
+			if (midiPlayer) {
+				midiPlayer.dispose();
 			}
 
-			// Create player with callbacks
-			player = new MidiPlayer(midi, {
-				onMidi: (event: any, when: number) => {
-					if (midiAudio) {
-						midiAudio.send(event, when);
+			midiPlayer = new MidiPlayer(midiNotation, {
+				cacheSpan: 400,
+				onMidi: (data: any, timestamp: number) => {
+					switch (data.subtype) {
+						case 'noteOn':
+							MidiAudio.noteOn(data.channel, data.noteNumber, data.velocity, timestamp / 1000);
+							break;
+						case 'noteOff':
+							MidiAudio.noteOff(data.channel, data.noteNumber, timestamp / 1000);
+							break;
+						case 'programChange':
+							MidiAudio.programChange(data.channel, data.programNumber);
+							break;
 					}
-				},
-				onPlayFinish: () => {
-					stop();
+
+					if (data.ids) {
+						highlightNotes(data.ids, data.subtype === 'noteOn');
+					}
 				},
 				onTurnCursor: (time: number) => {
 					currentTime = time;
-					highlightAtTime(time);
+				},
+				onPlayFinish: () => {
+					isPlaying = false;
+					currentTime = 0;
+					clearHighlights();
 				}
 			});
 
-			duration = player.duration;
-			currentTime = 0;
+			duration = midiNotation.endTime;
 		} catch (error) {
 			console.error('Failed to initialize player:', error);
 		}
 	}
 
 	async function play() {
-		if (!player || isPlaying) return;
-
-		try {
-			isPlaying = true;
-			await player.play();
-		} catch (error) {
-			console.error('Playback error:', error);
-			isPlaying = false;
-		}
+		if (!midiPlayer || isPlaying) return;
+		isPlaying = true;
+		await midiPlayer.play();
 	}
 
 	function pause() {
-		if (player) {
-			player.pause();
+		if (midiPlayer) {
+			midiPlayer.pause();
 			isPlaying = false;
 		}
 	}
 
 	function stop() {
-		if (player) {
-			player.pause();
-			player.progressTime = 0;
+		if (midiPlayer) {
+			midiPlayer.pause();
+			midiPlayer.progressTime = 0;
 			isPlaying = false;
 			currentTime = 0;
 			clearHighlights();
 		}
 	}
 
-	function seekTo(percent: number) {
-		if (!player) return;
-		const targetTime = duration * percent;
-		player.turnCursor(targetTime);
-		currentTime = targetTime;
-		if (!isPlaying) {
-			highlightAtTime(targetTime);
-		}
-	}
-
-	function highlightAtTime(time: number) {
-		const toolkit = getToolkit();
-		if (!toolkit) return;
-
-		try {
-			const elements = toolkit.getElementsAtTime(time);
-			if (elements && elements.notes) {
-				highlightNotes(elements.notes);
-			}
-		} catch (e) {
-			// Timing API may fail at edges
-		}
-	}
-
-	function highlightNotes(noteIds: string[]) {
-		clearHighlights();
+	function highlightNotes(noteIds: string[], on: boolean) {
 		noteIds.forEach(id => {
 			const element = document.getElementById(id);
 			if (element) {
-				element.classList.add('verovio-highlight');
+				if (on) {
+					element.classList.add('verovio-highlight');
+				} else {
+					element.classList.remove('verovio-highlight');
+				}
 			}
 		});
 	}
@@ -136,14 +128,24 @@
 		return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 	}
 
-	$: if ($editorStore.mei) {
+	function seekTo(percent: number) {
+		if (!midiPlayer) return;
+		const targetTime = duration * percent;
+		midiPlayer.turnCursor(targetTime);
+	}
+
+	$: if ($editorStore.mei && isAudioLoaded) {
 		initPlayer();
+	}
+
+	$: if (midiPlayer) {
+		currentTime = midiPlayer.progressTime;
 	}
 
 	onDestroy(() => {
 		stop();
-		if (midiAudio) {
-			midiAudio.dispose();
+		if (midiPlayer) {
+			midiPlayer.dispose();
 		}
 	});
 </script>
@@ -151,7 +153,7 @@
 <div class="player-container">
 	<div class="controls">
 		{#if !isPlaying}
-			<button class="control-btn play-btn" on:click={play} disabled={!player} title="Play">
+			<button class="control-btn play-btn" on:click={play} disabled={!midiPlayer || !isAudioLoaded} title="Play">
 				<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
 					<path d="M3 2v12l10-6z" />
 				</svg>
@@ -163,11 +165,14 @@
 				</svg>
 			</button>
 		{/if}
-		<button class="control-btn stop-btn" on:click={stop} disabled={!player || (!isPlaying && currentTime === 0)} title="Stop">
+		<button class="control-btn stop-btn" on:click={stop} disabled={!isPlaying && currentTime === 0} title="Stop">
 			<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
 				<rect x="3" y="3" width="10" height="10" />
 			</svg>
 		</button>
+		{#if !isAudioLoaded}
+			<span class="loading-text">Loading audio...</span>
+		{/if}
 	</div>
 
 	<div class="time-display">
@@ -177,7 +182,7 @@
 	</div>
 
 	<div class="progress-bar" role="progressbar" on:click={(e) => {
-		if (!player) return;
+		if (!midiPlayer) return;
 		const rect = e.currentTarget.getBoundingClientRect();
 		const x = e.clientX - rect.left;
 		const percent = x / rect.width;
@@ -200,6 +205,7 @@
 	.controls {
 		display: flex;
 		gap: 4px;
+		align-items: center;
 	}
 
 	.control-btn {
@@ -236,6 +242,12 @@
 
 	.stop-btn:hover:not(:disabled) {
 		color: #f48771;
+	}
+
+	.loading-text {
+		color: #858585;
+		font-size: 11px;
+		margin-left: 8px;
 	}
 
 	.time-display {
