@@ -26,14 +26,14 @@ export async function initVerovio(): Promise<VerovioToolkit> {
 	if (initPromise) return initPromise;
 
 	initPromise = (async () => {
-		// Dynamic import for browser-only
-		const verovio = await import('verovio');
-		const VerovioToolkit = verovio.VerovioToolkit;
+		// Import the WASM module and toolkit separately for browser compatibility
+		const createVerovioModule = (await import('verovio/wasm')).default;
+		const { VerovioToolkit } = await import('verovio/esm');
 
-		// Load the WASM module
-		const module = await verovio.default();
+		// Initialize the WASM module
+		const VerovioModule = await createVerovioModule();
 
-		toolkit = new VerovioToolkit(module);
+		toolkit = new VerovioToolkit(VerovioModule);
 		toolkit.setOptions(defaultOptions);
 
 		console.log('Verovio initialized:', toolkit.getVersion());

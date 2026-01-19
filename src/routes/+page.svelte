@@ -6,9 +6,9 @@
 	import { editorStore } from '$lib/stores/editor';
 	import { paraffToMEI } from '$lib/paraff';
 	import { getStateFromUrl, copyShareUrl } from '$lib/utils/share';
+	import { initVerovio, getToolkit } from '$lib/verovio/toolkit';
 
 	let verovioReady = false;
-	let toolkit: any = null;
 	let shareStatus: 'idle' | 'copied' | 'error' = 'idle';
 
 	// Watch for code changes and re-render
@@ -24,26 +24,10 @@
 		}, 2000);
 	}
 
-	async function initVerovio() {
+	async function setupVerovio() {
 		try {
-			// Import the WASM module and toolkit separately
-			const createVerovioModule = (await import('verovio/wasm')).default;
-			const { VerovioToolkit } = await import('verovio/esm');
-
-			// Initialize the WASM module
-			const VerovioModule = await createVerovioModule();
-
-			// Create toolkit instance
-			toolkit = new VerovioToolkit(VerovioModule);
-			toolkit.setOptions({
-				pageWidth: 2100,
-				pageHeight: 1000,
-				scale: 50,
-				adjustPageHeight: true,
-				breaks: 'auto'
-			});
+			await initVerovio();
 			verovioReady = true;
-			console.log('Verovio initialized:', toolkit.getVersion());
 		} catch (err) {
 			console.error('Failed to initialize Verovio:', err);
 			editorStore.setError('Failed to initialize Verovio: ' + String(err));
@@ -51,6 +35,7 @@
 	}
 
 	async function renderScore(code: string) {
+		const toolkit = getToolkit();
 		if (!toolkit) return;
 
 		editorStore.setRendering(true);
@@ -92,7 +77,7 @@
 				editorStore.setCode(urlState.code);
 			}
 
-			initVerovio();
+			setupVerovio();
 		}
 	});
 </script>
