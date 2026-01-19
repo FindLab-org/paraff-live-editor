@@ -21,17 +21,38 @@
 	async function updateCursorPosition(elementId: string) {
 		await tick(); // Ensure DOM is updated
 		const noteElement = document.getElementById(elementId);
+		console.log('updateCursorPosition:', elementId, 'found:', !!noteElement);
 		if (!noteElement || !svgContainer) {
 			cursorStyle = 'display: none;';
 			return;
 		}
 
+		// Find the parent system element to get proper height bounds
+		let systemElement = noteElement.closest('.system');
+		if (!systemElement) {
+			// Fallback: try to find staff
+			systemElement = noteElement.closest('.staff');
+		}
+		console.log('systemElement:', !!systemElement);
+
 		const svgRect = svgContainer.getBoundingClientRect();
 		const noteRect = noteElement.getBoundingClientRect();
 
-		// Position cursor at the left edge of the note, spanning full height of SVG container
+		// Calculate x position relative to SVG container
 		const x = noteRect.left - svgRect.left;
-		cursorStyle = `left: ${x}px; display: block;`;
+
+		// Calculate y and height based on system/staff bounds
+		let top = 0;
+		let height = svgRect.height;
+
+		if (systemElement) {
+			const systemRect = systemElement.getBoundingClientRect();
+			top = systemRect.top - svgRect.top;
+			height = systemRect.height;
+		}
+
+		console.log('cursor position:', { x, top, height });
+		cursorStyle = `left: ${x}px; top: ${top}px; height: ${height}px; display: block;`;
 	}
 
 	function downloadFile(content: string, filename: string, mimeType: string) {
@@ -185,10 +206,8 @@
 
 	.playback-cursor {
 		position: absolute;
-		top: 0;
 		width: 2px;
-		height: 100%;
-		background: rgba(0, 122, 204, 0.7);
+		background: rgba(0, 122, 204, 0.8);
 		pointer-events: none;
 		z-index: 10;
 		display: none;

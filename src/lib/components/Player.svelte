@@ -168,6 +168,7 @@
 			// Update cursor position - use the first note as cursor position
 			const noteIds = result.notes || [];
 			if (noteIds.length > 0) {
+				console.log('Setting cursor element:', noteIds[0]);
 				editorStore.setCursorElement(noteIds[0]);
 			}
 		} catch (error) {
