@@ -12,6 +12,9 @@
 	let shareStatus: 'idle' | 'copied' | 'error' = 'idle';
 	let lastRenderedCode = '';
 
+	// Render cancellation token to prevent out-of-order updates
+	let currentRenderId = 0;
+
 	// Watch for code changes and re-render (only when code actually changes)
 	$: if (browser && verovioReady && $editorStore.code && $editorStore.code !== lastRenderedCode) {
 		lastRenderedCode = $editorStore.code;
@@ -40,21 +43,29 @@
 		const toolkit = getToolkit();
 		if (!toolkit) return;
 
+		// Increment render ID and capture for this render
+		const renderId = ++currentRenderId;
+
 		editorStore.setRendering(true);
 
 		try {
 			// Convert Paraff to MEI
 			const mei = paraffToMEI(code);
 			if (!mei) {
+				// Check if this render is still current
+				if (renderId !== currentRenderId) return;
 				editorStore.setError('Failed to parse Paraff code');
 				return;
 			}
 
+			// Check if this render is still current before updating store
+			if (renderId !== currentRenderId) return;
 			editorStore.setMEI(mei);
 
 			// Render with Verovio
 			const success = toolkit.loadData(mei);
 			if (!success) {
+				if (renderId !== currentRenderId) return;
 				editorStore.setError('Verovio failed to load MEI data');
 				return;
 			}
@@ -62,12 +73,20 @@
 			const pageCount = toolkit.getPageCount();
 			const svg = toolkit.renderToSVG(1);
 
+			// Final check before committing results
+			if (renderId !== currentRenderId) return;
 			editorStore.setSVG(svg, pageCount);
 		} catch (err) {
-			console.error('Render error:', err);
-			editorStore.setError(String(err));
+			// Only set error if this render is still current
+			if (renderId === currentRenderId) {
+				console.error('Render error:', err);
+				editorStore.setError(String(err));
+			}
 		} finally {
-			editorStore.setRendering(false);
+			// Only clear rendering flag if this is the current render
+			if (renderId === currentRenderId) {
+				editorStore.setRendering(false);
+			}
 		}
 	}
 

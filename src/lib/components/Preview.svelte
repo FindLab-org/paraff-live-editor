@@ -8,8 +8,36 @@
 	let cursorStyle = '';
 	let lastRenderedSvg = '';
 
+	/**
+	 * Safely inject SVG content using DOMParser.
+	 * This extracts only the SVG element from the content, avoiding potential XSS vectors.
+	 */
+	function safelyInjectSvg(container: HTMLDivElement, svgString: string) {
+		// Parse the SVG string
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(svgString, 'image/svg+xml');
+
+		// Check for parse errors
+		const parseError = doc.querySelector('parsererror');
+		if (parseError) {
+			console.error('SVG parse error:', parseError.textContent);
+			return;
+		}
+
+		// Get the SVG element
+		const svgElement = doc.querySelector('svg');
+		if (!svgElement) {
+			console.error('No SVG element found in content');
+			return;
+		}
+
+		// Clear container and append the sanitized SVG
+		container.innerHTML = '';
+		container.appendChild(document.importNode(svgElement, true));
+	}
+
 	$: if (svgContainer && $editorStore.svg && $editorStore.svg !== lastRenderedSvg) {
-		svgContainer.innerHTML = $editorStore.svg;
+		safelyInjectSvg(svgContainer, $editorStore.svg);
 		lastRenderedSvg = $editorStore.svg;
 	}
 
@@ -22,7 +50,9 @@
 
 	async function updateCursorPosition(elementId: string) {
 		await tick(); // Ensure DOM is updated
-		const noteElement = document.getElementById(elementId);
+
+		// Use scoped query within svgContainer for safety
+		const noteElement = svgContainer?.querySelector(`#${CSS.escape(elementId)}`);
 		if (!noteElement || !svgContainer) {
 			cursorStyle = 'display: none;';
 			return;
@@ -90,9 +120,6 @@
 <div class="preview-wrapper">
 	<div class="preview-header">
 		<span class="title">Preview</span>
-		{#if $editorStore.pageCount > 0}
-			<span class="page-info">Page {$editorStore.currentPage} / {$editorStore.pageCount}</span>
-		{/if}
 		{#if $editorStore.isRendering}
 			<span class="rendering">Rendering...</span>
 		{/if}
@@ -155,11 +182,6 @@
 		color: #cccccc;
 		font-size: 14px;
 		font-weight: 500;
-	}
-
-	.page-info {
-		color: #858585;
-		font-size: 12px;
 	}
 
 	.rendering {

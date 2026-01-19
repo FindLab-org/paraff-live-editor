@@ -5,13 +5,47 @@
 	import { MIDI, MidiPlayer, MusicNotation } from '@k-l-lambda/music-widgets';
 	import { MidiAudio } from '@k-l-lambda/music-widgets/dist/musicWidgetsBrowser.es.js';
 
+	// Types for MIDI data structures
+	interface MidiEvent {
+		time: number;
+		data: {
+			type: string;
+			subtype: string;
+			channel: number;
+			noteNumber?: number;
+			velocity?: number;
+			programNumber?: number;
+		};
+	}
+
+	interface MidiNotation {
+		events: MidiEvent[];
+		endTime: number;
+		tempos?: Array<{ tempo: number; tick: number; time: number }>;
+	}
+
+	// State
 	let isPlaying = false;
 	let currentTime = 0;
 	let duration = 0;
-	let midiPlayer: any = null;
-	let midiData: any = null;
+	let midiPlayer: MidiPlayer | null = null;
+	let midiData: MidiNotation | null = null;
 	let isAudioLoaded = false;
+	let audioLoadError: string | null = null;
 	let highlightedNotes: Set<string> = new Set();
+
+	// Element cache for performance
+	let elementCache: Map<string, Element | null> = new Map();
+
+	// Playback state
+	let updateInterval: number | null = null;
+	let playStartTime = 0;
+	let lastEventIndex = 0;
+	let pausedTime = 0;
+
+	// Throttle state for getElementsAtTime
+	let lastHighlightUpdate = 0;
+	const HIGHLIGHT_THROTTLE_MS = 50;
 
 	onMount(async () => {
 		try {
@@ -20,9 +54,10 @@
 				api: 'webaudio'
 			});
 			isAudioLoaded = true;
-			console.log('MidiAudio loaded');
+			audioLoadError = null;
 		} catch (error) {
 			console.error('Failed to load MidiAudio:', error);
+			audioLoadError = error instanceof Error ? error.message : 'Failed to load audio';
 		}
 	});
 
@@ -42,7 +77,7 @@
 
 			const rawMidiData = MIDI.parseMidiData(bytes.buffer);
 			// Parse to notation and add default tempo if missing
-			const notation = MusicNotation.Notation.parseMidi(rawMidiData);
+			const notation = MusicNotation.Notation.parseMidi(rawMidiData) as MidiNotation;
 			if (!notation.tempos || notation.tempos.length === 0) {
 				// Add default tempo (120 BPM = 500000 microseconds per beat)
 				notation.tempos = [{ tempo: 500000, tick: 0, time: 0 }];
@@ -55,7 +90,7 @@
 
 			midiPlayer = new MidiPlayer(midiData, {
 				cacheSpan: 400,
-				onMidi: (data: any, timestamp: number) => {
+				onMidi: (data: MidiEvent['data'], timestamp: number) => {
 					switch (data.subtype) {
 						case 'noteOn':
 							MidiAudio.noteOn(data.channel, data.noteNumber, data.velocity, timestamp);
@@ -67,14 +102,6 @@
 							MidiAudio.programChange(data.channel, data.programNumber);
 							break;
 					}
-
-					// Update highlights based on current playback time
-					if (midiPlayer) {
-						updateHighlights(midiPlayer.progressTime);
-					}
-				},
-				onTurnCursor: (time: number) => {
-					currentTime = time;
 				},
 				onPlayFinish: () => {
 					if (updateInterval) {
@@ -83,26 +110,53 @@
 					}
 					isPlaying = false;
 					currentTime = 0;
+					pausedTime = 0;
+					lastEventIndex = 0;
 					clearHighlights();
 				}
 			});
 
 			duration = midiData.endTime;
+
+			// Clear element cache when new score is loaded
+			elementCache.clear();
+
+			// Reset playback state
+			stop();
 		} catch (error) {
 			console.error('Failed to initialize player:', error);
 		}
 	}
 
-	let updateInterval: number | null = null;
+	function findEventIndexAtTime(time: number): number {
+		if (!midiData) return 0;
+		const events = midiData.events;
+		// Binary search for first event at or after time
+		let low = 0;
+		let high = events.length;
+		while (low < high) {
+			const mid = (low + high) >>> 1;
+			if (events[mid].time < time) {
+				low = mid + 1;
+			} else {
+				high = mid;
+			}
+		}
+		return low;
+	}
 
-	let playStartTime = 0;
-	let lastEventIndex = 0;
-
-	async function play() {
+	function play() {
 		if (!midiPlayer || !midiData || isPlaying) return;
 		isPlaying = true;
-		playStartTime = performance.now();
-		lastEventIndex = 0;
+
+		// Resume from pausedTime if we were paused, otherwise start from 0
+		if (pausedTime > 0) {
+			playStartTime = performance.now() - pausedTime;
+			lastEventIndex = findEventIndexAtTime(pausedTime);
+		} else {
+			playStartTime = performance.now();
+			lastEventIndex = 0;
+		}
 
 		// Start interval to drive playback manually
 		updateInterval = setInterval(() => {
@@ -135,8 +189,8 @@
 				}
 			}
 
-			// Update highlights
-			updateHighlights(currentTime);
+			// Update highlights (throttled)
+			updateHighlightsThrottled(currentTime);
 
 			// Check if playback finished
 			if (elapsed >= duration) {
@@ -144,8 +198,6 @@
 			}
 		}, 30) as unknown as number;
 	}
-
-	let pausedTime = 0;
 
 	function pause() {
 		if (updateInterval) {
@@ -172,6 +224,51 @@
 		MidiAudio.stopAllNotes?.();
 	}
 
+	function seekTo(targetTime: number) {
+		if (!midiData) return;
+
+		// Clamp to valid range
+		targetTime = Math.max(0, Math.min(targetTime, duration));
+
+		// Stop all currently playing notes
+		MidiAudio.stopAllNotes?.();
+
+		// Update state
+		currentTime = targetTime;
+		pausedTime = targetTime;
+		lastEventIndex = findEventIndexAtTime(targetTime);
+
+		// If playing, adjust playStartTime to maintain continuity
+		if (isPlaying) {
+			playStartTime = performance.now() - targetTime;
+		}
+
+		// Update highlights immediately
+		updateHighlights(targetTime);
+	}
+
+	function handleProgressBarClick(e: MouseEvent) {
+		if (!midiData) return;
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const x = e.clientX - rect.left;
+		const percent = x / rect.width;
+		seekTo(duration * percent);
+	}
+
+	function getElement(id: string): Element | null {
+		if (!elementCache.has(id)) {
+			elementCache.set(id, document.getElementById(id));
+		}
+		return elementCache.get(id) || null;
+	}
+
+	function updateHighlightsThrottled(time: number) {
+		const now = performance.now();
+		if (now - lastHighlightUpdate < HIGHLIGHT_THROTTLE_MS) return;
+		lastHighlightUpdate = now;
+		updateHighlights(time);
+	}
+
 	function updateHighlights(time: number) {
 		const toolkit = getToolkit();
 		if (!toolkit) return;
@@ -184,7 +281,7 @@
 			// Remove highlights from notes no longer playing
 			highlightedNotes.forEach(id => {
 				if (!newNotes.has(id)) {
-					const element = document.getElementById(id);
+					const element = getElement(id);
 					if (element) {
 						element.classList.remove('verovio-highlight');
 					}
@@ -194,7 +291,7 @@
 			// Add highlights to new notes
 			newNotes.forEach(id => {
 				if (!highlightedNotes.has(id)) {
-					const element = document.getElementById(id);
+					const element = getElement(id);
 					if (element) {
 						element.classList.add('verovio-highlight');
 					}
@@ -213,22 +310,9 @@
 		}
 	}
 
-	function highlightNotes(noteIds: string[], on: boolean) {
-		noteIds.forEach(id => {
-			const element = document.getElementById(id);
-			if (element) {
-				if (on) {
-					element.classList.add('verovio-highlight');
-				} else {
-					element.classList.remove('verovio-highlight');
-				}
-			}
-		});
-	}
-
 	function clearHighlights() {
 		highlightedNotes.forEach(id => {
-			const element = document.getElementById(id);
+			const element = getElement(id);
 			if (element) {
 				element.classList.remove('verovio-highlight');
 			}
@@ -244,10 +328,9 @@
 		return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 	}
 
-	function seekTo(percent: number) {
-		if (!midiPlayer) return;
-		const targetTime = duration * percent;
-		midiPlayer.turnCursor(targetTime);
+	// Clear element cache when SVG changes
+	$: if ($editorStore.svg) {
+		elementCache.clear();
 	}
 
 	$: if ($editorStore.mei && isAudioLoaded) {
@@ -282,7 +365,9 @@
 				<rect x="3" y="3" width="10" height="10" />
 			</svg>
 		</button>
-		{#if !isAudioLoaded}
+		{#if audioLoadError}
+			<span class="error-text" title={audioLoadError}>Audio error</span>
+		{:else if !isAudioLoaded}
 			<span class="loading-text">Loading audio...</span>
 		{/if}
 	</div>
@@ -293,13 +378,7 @@
 		<span class="duration">{formatTime(duration)}</span>
 	</div>
 
-	<div class="progress-bar" role="progressbar" on:click={(e) => {
-		if (!midiPlayer) return;
-		const rect = e.currentTarget.getBoundingClientRect();
-		const x = e.clientX - rect.left;
-		const percent = x / rect.width;
-		seekTo(percent);
-	}}>
+	<div class="progress-bar" role="progressbar" on:click={handleProgressBarClick}>
 		<div class="progress-fill" style="width: {duration > 0 ? (currentTime / duration) * 100 : 0}%"></div>
 	</div>
 </div>
@@ -360,6 +439,13 @@
 		color: #858585;
 		font-size: 11px;
 		margin-left: 8px;
+	}
+
+	.error-text {
+		color: #f48771;
+		font-size: 11px;
+		margin-left: 8px;
+		cursor: help;
 	}
 
 	.time-display {
