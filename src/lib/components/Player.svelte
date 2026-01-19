@@ -2,7 +2,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { editorStore } from '$lib/stores/editor';
 	import { getToolkit } from '$lib/verovio/toolkit';
-	import { MIDI, MusicNotation, MidiPlayer, MidiAudio } from '@k-l-lambda/music-widgets';
+	import { MIDI, MusicNotation, MidiPlayer } from '@k-l-lambda/music-widgets';
+	import { MidiAudio } from '@k-l-lambda/music-widgets/dist/musicWidgetsBrowser.es.js';
 
 	let isPlaying = false;
 	let currentTime = 0;

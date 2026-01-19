@@ -7,10 +7,14 @@ export default defineConfig({
 		exclude: ['verovio']
 	},
 	resolve: {
-		alias: {
+		alias: [
 			// Use lib entry point instead of browser (which requires Vue)
-			'@k-l-lambda/music-widgets': '@k-l-lambda/music-widgets/lib/index.js'
-		}
+			// Use exact match to not affect subpath imports
+			{
+				find: /^@k-l-lambda\/music-widgets$/,
+				replacement: '@k-l-lambda/music-widgets/lib/index.js'
+			}
+		]
 	},
 	server: {
 		fs: {
