@@ -392,7 +392,9 @@
 	}
 
 	:global(.verovio-highlight) {
-		fill: #007acc !important;
-		opacity: 0.8;
+		fill: #ff6b35 !important;
+		stroke: #ff6b35 !important;
+		stroke-width: 1px;
+		filter: drop-shadow(0 0 3px #ff6b35);
 	}
 </style>

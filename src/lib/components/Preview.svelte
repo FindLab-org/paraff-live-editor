@@ -6,9 +6,11 @@
 	let svgContainer: HTMLDivElement;
 	let cursorElement: HTMLDivElement;
 	let cursorStyle = '';
+	let lastRenderedSvg = '';
 
-	$: if (svgContainer && $editorStore.svg) {
+	$: if (svgContainer && $editorStore.svg && $editorStore.svg !== lastRenderedSvg) {
 		svgContainer.innerHTML = $editorStore.svg;
+		lastRenderedSvg = $editorStore.svg;
 	}
 
 	// Update cursor position when cursorElementId changes

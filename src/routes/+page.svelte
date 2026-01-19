@@ -10,9 +10,11 @@
 
 	let verovioReady = false;
 	let shareStatus: 'idle' | 'copied' | 'error' = 'idle';
+	let lastRenderedCode = '';
 
-	// Watch for code changes and re-render
-	$: if (browser && verovioReady && $editorStore.code) {
+	// Watch for code changes and re-render (only when code actually changes)
+	$: if (browser && verovioReady && $editorStore.code && $editorStore.code !== lastRenderedCode) {
+		lastRenderedCode = $editorStore.code;
 		renderScore($editorStore.code);
 	}
 
