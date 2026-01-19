@@ -2,14 +2,14 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { editorStore } from '$lib/stores/editor';
 	import { getToolkit } from '$lib/verovio/toolkit';
-	import { MIDI, MusicNotation, MidiPlayer } from '@k-l-lambda/music-widgets';
+	import { MIDI, MidiPlayer, MusicNotation } from '@k-l-lambda/music-widgets';
 	import { MidiAudio } from '@k-l-lambda/music-widgets/dist/musicWidgetsBrowser.es.js';
 
 	let isPlaying = false;
 	let currentTime = 0;
 	let duration = 0;
 	let midiPlayer: any = null;
-	let midiNotation: any = null;
+	let midiData: any = null;
 	let isAudioLoaded = false;
 
 	onMount(async () => {
@@ -39,22 +39,28 @@
 				bytes[i] = binaryString.charCodeAt(i);
 			}
 
-			const midiData = MIDI.parseMidiData(bytes.buffer);
-			midiNotation = MusicNotation.Notation.parseMidi(midiData);
-			
+			const rawMidiData = MIDI.parseMidiData(bytes.buffer);
+			// Parse to notation and add default tempo if missing
+			const notation = MusicNotation.Notation.parseMidi(rawMidiData);
+			if (!notation.tempos || notation.tempos.length === 0) {
+				// Add default tempo (120 BPM = 500000 microseconds per beat)
+				notation.tempos = [{ tempo: 500000, tick: 0, time: 0 }];
+			}
+			midiData = notation;
+
 			if (midiPlayer) {
 				midiPlayer.dispose();
 			}
 
-			midiPlayer = new MidiPlayer(midiNotation, {
+			midiPlayer = new MidiPlayer(midiData, {
 				cacheSpan: 400,
 				onMidi: (data: any, timestamp: number) => {
 					switch (data.subtype) {
 						case 'noteOn':
-							MidiAudio.noteOn(data.channel, data.noteNumber, data.velocity, timestamp / 1000);
+							MidiAudio.noteOn(data.channel, data.noteNumber, data.velocity, timestamp);
 							break;
 						case 'noteOff':
-							MidiAudio.noteOff(data.channel, data.noteNumber, timestamp / 1000);
+							MidiAudio.noteOff(data.channel, data.noteNumber, timestamp);
 							break;
 						case 'programChange':
 							MidiAudio.programChange(data.channel, data.programNumber);
@@ -75,7 +81,7 @@
 				}
 			});
 
-			duration = midiNotation.endTime;
+			duration = midiData.endTime;
 		} catch (error) {
 			console.error('Failed to initialize player:', error);
 		}
