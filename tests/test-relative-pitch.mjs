@@ -1,4 +1,4 @@
-import { parseParaff, toMEI } from '../src/lib/paraff/index.ts';
+import { parseParaff, toMEI } from '@k-l-lambda/paraff/browser';
 
 // Understanding the Paraff relative pitch encoding:
 //

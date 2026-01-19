@@ -1,4 +1,4 @@
-import { parseParaff, paraffToMEI } from '../src/lib/paraff/index.js';
+import { parseParaff, paraffToMEI } from '@k-l-lambda/paraff/browser';
 
 // Test various multi-voice examples from the dataset
 

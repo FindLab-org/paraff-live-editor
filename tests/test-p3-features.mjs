@@ -1,4 +1,4 @@
-import { parseParaff, toMEI } from "../src/lib/paraff/index.ts";
+import { parseParaff, toMEI } from '@k-l-lambda/paraff/browser';
 
 // Test: P3 features - arpeggio, ornaments, sforzando, articulations
 const code = "BOM K0 TN4 TD4 S1 Cg Earp c e g D4 Eturn d D4 Emor e D4 Esf f D4 Estm g D4 Epor a D4 EOM";
