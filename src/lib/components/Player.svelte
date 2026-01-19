@@ -95,29 +95,67 @@
 
 	let updateInterval: number | null = null;
 
+	let playStartTime = 0;
+	let lastEventIndex = 0;
+
 	async function play() {
-		if (!midiPlayer || isPlaying) return;
+		if (!midiPlayer || !midiData || isPlaying) return;
 		isPlaying = true;
+		playStartTime = performance.now();
+		lastEventIndex = 0;
 
-		// Start interval to update time display
+		// Start interval to drive playback manually
 		updateInterval = setInterval(() => {
-			if (midiPlayer && isPlaying) {
-				currentTime = midiPlayer.progressTime;
-			}
-		}, 100) as unknown as number;
+			if (!isPlaying || !midiData) return;
 
-		await midiPlayer.play();
+			const now = performance.now();
+			const elapsed = now - playStartTime;
+			currentTime = elapsed;
+
+			// Send MIDI events that should have played by now
+			const events = midiData.events;
+			for (; lastEventIndex < events.length; lastEventIndex++) {
+				const event = events[lastEventIndex];
+				if (event.time > elapsed) break;
+
+				// Send channel events (noteOn, noteOff, etc.)
+				if (event.data.type === 'channel') {
+					const timestamp = playStartTime + event.time;
+					switch (event.data.subtype) {
+						case 'noteOn':
+							MidiAudio.noteOn(event.data.channel, event.data.noteNumber, event.data.velocity, timestamp);
+							break;
+						case 'noteOff':
+							MidiAudio.noteOff(event.data.channel, event.data.noteNumber, timestamp);
+							break;
+						case 'programChange':
+							MidiAudio.programChange(event.data.channel, event.data.programNumber);
+							break;
+					}
+				}
+			}
+
+			// Update highlights
+			updateHighlights(currentTime);
+
+			// Check if playback finished
+			if (elapsed >= duration) {
+				stop();
+			}
+		}, 30) as unknown as number;
 	}
+
+	let pausedTime = 0;
 
 	function pause() {
 		if (updateInterval) {
 			clearInterval(updateInterval);
 			updateInterval = null;
 		}
-		if (midiPlayer) {
-			midiPlayer.pause();
-			isPlaying = false;
-		}
+		pausedTime = currentTime;
+		isPlaying = false;
+		// Stop all notes
+		MidiAudio.stopAllNotes?.();
 	}
 
 	function stop() {
@@ -125,13 +163,13 @@
 			clearInterval(updateInterval);
 			updateInterval = null;
 		}
-		if (midiPlayer) {
-			midiPlayer.pause();
-			midiPlayer.progressTime = 0;
-			isPlaying = false;
-			currentTime = 0;
-			clearHighlights();
-		}
+		isPlaying = false;
+		currentTime = 0;
+		pausedTime = 0;
+		lastEventIndex = 0;
+		clearHighlights();
+		// Stop all notes
+		MidiAudio.stopAllNotes?.();
 	}
 
 	function updateHighlights(time: number) {
@@ -214,10 +252,6 @@
 
 	$: if ($editorStore.mei && isAudioLoaded) {
 		initPlayer();
-	}
-
-	$: if (midiPlayer) {
-		currentTime = midiPlayer.progressTime;
 	}
 
 	onDestroy(() => {
