@@ -37,6 +37,9 @@
 	// Element cache for performance
 	let elementCache: Map<string, Element | null> = new Map();
 
+	// Track which MEI we've initialized for (to prevent re-init during playback)
+	let initializedMei: string | null = null;
+
 	// Playback state
 	let updateInterval: number | null = null;
 	let playStartTime = 0;
@@ -63,6 +66,10 @@
 
 	async function initPlayer() {
 		if (!$editorStore.mei || !isAudioLoaded) return;
+
+		// Skip if already initialized for this MEI (prevents re-init when store updates during playback)
+		if ($editorStore.mei === initializedMei && midiPlayer) return;
+		initializedMei = $editorStore.mei;
 
 		try {
 			const toolkit = getToolkit();
