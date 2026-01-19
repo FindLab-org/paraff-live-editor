@@ -1,11 +1,37 @@
 <script lang="ts">
 	import { editorStore } from '$lib/stores/editor';
 	import Player from './Player.svelte';
+	import { tick } from 'svelte';
 
 	let svgContainer: HTMLDivElement;
+	let cursorElement: HTMLDivElement;
+	let cursorStyle = '';
 
 	$: if (svgContainer && $editorStore.svg) {
 		svgContainer.innerHTML = $editorStore.svg;
+	}
+
+	// Update cursor position when cursorElementId changes
+	$: if ($editorStore.cursorElementId && svgContainer) {
+		updateCursorPosition($editorStore.cursorElementId);
+	} else {
+		cursorStyle = 'display: none;';
+	}
+
+	async function updateCursorPosition(elementId: string) {
+		await tick(); // Ensure DOM is updated
+		const noteElement = document.getElementById(elementId);
+		if (!noteElement || !svgContainer) {
+			cursorStyle = 'display: none;';
+			return;
+		}
+
+		const svgRect = svgContainer.getBoundingClientRect();
+		const noteRect = noteElement.getBoundingClientRect();
+
+		// Position cursor at the left edge of the note, spanning full height of SVG container
+		const x = noteRect.left - svgRect.left;
+		cursorStyle = `left: ${x}px; display: block;`;
 	}
 
 	function downloadFile(content: string, filename: string, mimeType: string) {
@@ -71,7 +97,10 @@
 				<pre>{$editorStore.error}</pre>
 			</div>
 		{:else if $editorStore.svg}
-			<div class="svg-container" bind:this={svgContainer}></div>
+			<div class="svg-wrapper">
+				<div class="svg-container" bind:this={svgContainer}></div>
+				<div class="playback-cursor" bind:this={cursorElement} style={cursorStyle}></div>
+			</div>
 		{:else}
 			<div class="placeholder">
 				<p>Enter Paraff code to see the rendered score</p>
@@ -138,6 +167,10 @@
 		align-items: flex-start;
 	}
 
+	.svg-wrapper {
+		position: relative;
+	}
+
 	.svg-container {
 		background: white;
 		padding: 20px;
@@ -148,6 +181,17 @@
 	.svg-container :global(svg) {
 		max-width: 100%;
 		height: auto;
+	}
+
+	.playback-cursor {
+		position: absolute;
+		top: 0;
+		width: 2px;
+		height: 100%;
+		background: rgba(0, 122, 204, 0.7);
+		pointer-events: none;
+		z-index: 10;
+		display: none;
 	}
 
 	.error-message {

@@ -8,6 +8,7 @@ export interface EditorState {
 	pageCount: number;
 	currentPage: number;
 	isRendering: boolean;
+	cursorElementId: string | null;
 }
 
 const initialState: EditorState = {
@@ -20,7 +21,8 @@ BOM K1 TN3 TD4 S1 Cg Mu b d g D2 Dot VB S2 Cf Md g D2 Dot EOM`,
 	svg: null,
 	pageCount: 0,
 	currentPage: 1,
-	isRendering: false
+	isRendering: false,
+	cursorElementId: null
 };
 
 function createEditorStore() {
@@ -35,6 +37,7 @@ function createEditorStore() {
 		setError: (error: string) => update((s) => ({ ...s, error, svg: null })),
 		setRendering: (isRendering: boolean) => update((s) => ({ ...s, isRendering })),
 		setPage: (page: number) => update((s) => ({ ...s, currentPage: page })),
+		setCursorElement: (cursorElementId: string | null) => update((s) => ({ ...s, cursorElementId })),
 		reset: () => set(initialState)
 	};
 }

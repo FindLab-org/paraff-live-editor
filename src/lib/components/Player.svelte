@@ -164,6 +164,12 @@
 			});
 
 			highlightedNotes = newNotes;
+
+			// Update cursor position - use the first note as cursor position
+			const noteIds = result.notes || [];
+			if (noteIds.length > 0) {
+				editorStore.setCursorElement(noteIds[0]);
+			}
 		} catch (error) {
 			// Ignore errors during highlight update
 		}
@@ -190,6 +196,7 @@
 			}
 		});
 		highlightedNotes = new Set();
+		editorStore.setCursorElement(null);
 	}
 
 	function formatTime(ms: number): string {
