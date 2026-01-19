@@ -1,5 +1,7 @@
 # Paraff Live Editor
 
+[![Deploy to GitHub Pages](https://github.com/FindLab-org/paraff-live-editor/actions/workflows/deploy.yml/badge.svg)](https://github.com/FindLab-org/paraff-live-editor/actions/workflows/deploy.yml)
+
 A live editor for [Paraff](https://github.com/k-l-lambda/paraff) music notation with real-time MEI conversion and Verovio rendering.
 
 ## Features
