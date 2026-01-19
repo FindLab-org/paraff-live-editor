@@ -1,12 +1,15 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { editorStore } from '$lib/stores/editor';
 	import { getToolkit } from '$lib/verovio/toolkit';
+	import MidiPlayer from '$lib/music-widgets/MidiPlayer';
+	import * as MIDI from '$lib/music-widgets/MIDI';
 
 	let isPlaying = false;
 	let currentTime = 0;
-	let duration = 10000; // Default 10 seconds
-	let startTimeMs = 0;
+	let duration = 0;
+	let player: MidiPlayer | null = null;
+	let midiAudio: any = null;
 
 	async function initPlayer() {
 		if (!$editorStore.mei) return;
@@ -15,47 +18,55 @@
 			const toolkit = getToolkit();
 			if (!toolkit) return;
 
-			// Estimate duration from last measure timing
-			// Verovio timing API varies, so we use a simple approach
-			duration = 10000; // Start with 10 seconds default
+			// Get MIDI data from Verovio
+			const midiBase64 = toolkit.renderToMIDI();
+			
+			// Convert base64 to ArrayBuffer
+			const binaryString = atob(midiBase64);
+			const bytes = new Uint8Array(binaryString.length);
+			for (let i = 0; i < binaryString.length; i++) {
+				bytes[i] = binaryString.charCodeAt(i);
+			}
+
+			// Parse MIDI
+			const midi = MIDI.parseMidiData(bytes.buffer);
+			
+			// Initialize MidiAudio if not already done
+			if (!midiAudio) {
+				const { default: MidiAudio } = await import('$lib/music-widgets/MidiAudio');
+				midiAudio = new MidiAudio();
+				await midiAudio.loadPlugin();
+			}
+
+			// Create player with callbacks
+			player = new MidiPlayer(midi, {
+				onMidi: (event: any, when: number) => {
+					if (midiAudio) {
+						midiAudio.send(event, when);
+					}
+				},
+				onPlayFinish: () => {
+					stop();
+				},
+				onTurnCursor: (time: number) => {
+					currentTime = time;
+					highlightAtTime(time);
+				}
+			});
+
+			duration = player.duration;
+			currentTime = 0;
 		} catch (error) {
 			console.error('Failed to initialize player:', error);
 		}
 	}
 
 	async function play() {
-		if (!$editorStore.mei || isPlaying) return;
+		if (!player || isPlaying) return;
 
 		try {
-			const toolkit = getToolkit();
-			if (!toolkit) return;
-
 			isPlaying = true;
-			startTimeMs = Date.now() - currentTime;
-			
-			const animate = () => {
-				if (!isPlaying) return;
-
-				currentTime = Date.now() - startTimeMs;
-				
-				// Get elements at current time and highlight
-				try {
-					const elements = toolkit.getElementsAtTime(currentTime);
-					if (elements && elements.notes) {
-						highlightNotes(elements.notes);
-					}
-				} catch (e) {
-					// Timing API may fail, ignore
-				}
-
-				if (currentTime < duration) {
-					requestAnimationFrame(animate);
-				} else {
-					stop();
-				}
-			};
-
-			requestAnimationFrame(animate);
+			await player.play();
 		} catch (error) {
 			console.error('Playback error:', error);
 			isPlaying = false;
@@ -63,13 +74,44 @@
 	}
 
 	function pause() {
-		isPlaying = false;
+		if (player) {
+			player.pause();
+			isPlaying = false;
+		}
 	}
 
 	function stop() {
-		isPlaying = false;
-		currentTime = 0;
-		clearHighlights();
+		if (player) {
+			player.pause();
+			player.progressTime = 0;
+			isPlaying = false;
+			currentTime = 0;
+			clearHighlights();
+		}
+	}
+
+	function seekTo(percent: number) {
+		if (!player) return;
+		const targetTime = duration * percent;
+		player.turnCursor(targetTime);
+		currentTime = targetTime;
+		if (!isPlaying) {
+			highlightAtTime(targetTime);
+		}
+	}
+
+	function highlightAtTime(time: number) {
+		const toolkit = getToolkit();
+		if (!toolkit) return;
+
+		try {
+			const elements = toolkit.getElementsAtTime(time);
+			if (elements && elements.notes) {
+				highlightNotes(elements.notes);
+			}
+		} catch (e) {
+			// Timing API may fail at edges
+		}
 	}
 
 	function highlightNotes(noteIds: string[]) {
@@ -94,26 +136,22 @@
 		return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 	}
 
-	function seekTo(percent: number) {
-		currentTime = Math.floor(duration * percent);
-		if (isPlaying) {
-			startTimeMs = Date.now() - currentTime;
-		}
-	}
-
 	$: if ($editorStore.mei) {
 		initPlayer();
 	}
 
 	onDestroy(() => {
 		stop();
+		if (midiAudio) {
+			midiAudio.dispose();
+		}
 	});
 </script>
 
 <div class="player-container">
 	<div class="controls">
 		{#if !isPlaying}
-			<button class="control-btn play-btn" on:click={play} disabled={!$editorStore.mei} title="Play">
+			<button class="control-btn play-btn" on:click={play} disabled={!player} title="Play">
 				<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
 					<path d="M3 2v12l10-6z" />
 				</svg>
@@ -125,7 +163,7 @@
 				</svg>
 			</button>
 		{/if}
-		<button class="control-btn stop-btn" on:click={stop} disabled={!isPlaying && currentTime === 0} title="Stop">
+		<button class="control-btn stop-btn" on:click={stop} disabled={!player || (!isPlaying && currentTime === 0)} title="Stop">
 			<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
 				<rect x="3" y="3" width="10" height="10" />
 			</svg>
@@ -139,7 +177,7 @@
 	</div>
 
 	<div class="progress-bar" role="progressbar" on:click={(e) => {
-		if (!$editorStore.mei) return;
+		if (!player) return;
 		const rect = e.currentTarget.getBoundingClientRect();
 		const x = e.clientX - rect.left;
 		const percent = x / rect.width;
