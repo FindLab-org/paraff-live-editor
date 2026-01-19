@@ -11,6 +11,7 @@
 	let midiPlayer: any = null;
 	let midiData: any = null;
 	let isAudioLoaded = false;
+	let highlightedNotes: Set<string> = new Set();
 
 	onMount(async () => {
 		try {
@@ -67,14 +68,19 @@
 							break;
 					}
 
-					if (data.ids) {
-						highlightNotes(data.ids, data.subtype === 'noteOn');
+					// Update highlights based on current playback time
+					if (midiPlayer) {
+						updateHighlights(midiPlayer.progressTime);
 					}
 				},
 				onTurnCursor: (time: number) => {
 					currentTime = time;
 				},
 				onPlayFinish: () => {
+					if (updateInterval) {
+						clearInterval(updateInterval);
+						updateInterval = null;
+					}
 					isPlaying = false;
 					currentTime = 0;
 					clearHighlights();
@@ -87,13 +93,27 @@
 		}
 	}
 
+	let updateInterval: number | null = null;
+
 	async function play() {
 		if (!midiPlayer || isPlaying) return;
 		isPlaying = true;
+
+		// Start interval to update time display
+		updateInterval = setInterval(() => {
+			if (midiPlayer && isPlaying) {
+				currentTime = midiPlayer.progressTime;
+			}
+		}, 100) as unknown as number;
+
 		await midiPlayer.play();
 	}
 
 	function pause() {
+		if (updateInterval) {
+			clearInterval(updateInterval);
+			updateInterval = null;
+		}
 		if (midiPlayer) {
 			midiPlayer.pause();
 			isPlaying = false;
@@ -101,12 +121,51 @@
 	}
 
 	function stop() {
+		if (updateInterval) {
+			clearInterval(updateInterval);
+			updateInterval = null;
+		}
 		if (midiPlayer) {
 			midiPlayer.pause();
 			midiPlayer.progressTime = 0;
 			isPlaying = false;
 			currentTime = 0;
 			clearHighlights();
+		}
+	}
+
+	function updateHighlights(time: number) {
+		const toolkit = getToolkit();
+		if (!toolkit) return;
+
+		try {
+			// Get elements at current time (time is in ms)
+			const result = toolkit.getElementsAtTime(time);
+			const newNotes = new Set<string>(result.notes || []);
+
+			// Remove highlights from notes no longer playing
+			highlightedNotes.forEach(id => {
+				if (!newNotes.has(id)) {
+					const element = document.getElementById(id);
+					if (element) {
+						element.classList.remove('verovio-highlight');
+					}
+				}
+			});
+
+			// Add highlights to new notes
+			newNotes.forEach(id => {
+				if (!highlightedNotes.has(id)) {
+					const element = document.getElementById(id);
+					if (element) {
+						element.classList.add('verovio-highlight');
+					}
+				}
+			});
+
+			highlightedNotes = newNotes;
+		} catch (error) {
+			// Ignore errors during highlight update
 		}
 	}
 
@@ -124,8 +183,13 @@
 	}
 
 	function clearHighlights() {
-		const highlighted = document.querySelectorAll('.verovio-highlight');
-		highlighted.forEach(el => el.classList.remove('verovio-highlight'));
+		highlightedNotes.forEach(id => {
+			const element = document.getElementById(id);
+			if (element) {
+				element.classList.remove('verovio-highlight');
+			}
+		});
+		highlightedNotes = new Set();
 	}
 
 	function formatTime(ms: number): string {
