@@ -21,7 +21,6 @@
 	async function updateCursorPosition(elementId: string) {
 		await tick(); // Ensure DOM is updated
 		const noteElement = document.getElementById(elementId);
-		console.log('updateCursorPosition:', elementId, 'found:', !!noteElement);
 		if (!noteElement || !svgContainer) {
 			cursorStyle = 'display: none;';
 			return;
@@ -33,7 +32,6 @@
 			// Fallback: try to find staff
 			systemElement = noteElement.closest('.staff');
 		}
-		console.log('systemElement:', !!systemElement);
 
 		const svgRect = svgContainer.getBoundingClientRect();
 		const noteRect = noteElement.getBoundingClientRect();
@@ -51,7 +49,6 @@
 			height = systemRect.height;
 		}
 
-		console.log('cursor position:', { x, top, height });
 		cursorStyle = `left: ${x}px; top: ${top}px; height: ${height}px; display: block;`;
 	}
 
