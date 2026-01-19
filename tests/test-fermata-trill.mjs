@@ -1,4 +1,4 @@
-import { parseParaff, toMEI } from '@k-l-lambda/paraff/browser';
+import { parseParaff, toMEI } from '@findlab-org/paraff/browser';
 
 // Test: Fermata and trill output in MEI
 // Efer = fermata (Expression fermata)

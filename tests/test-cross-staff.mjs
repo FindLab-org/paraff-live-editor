@@ -1,4 +1,4 @@
-import { parseParaff } from '@k-l-lambda/paraff/browser';
+import { parseParaff } from '@findlab-org/paraff/browser';
 
 const code = "BOM K0 TN4 TD4 S1 Cg c D4 d D4 S2 e D4 S1 f D4 VB S2 Cf c Osub D1 EOM";
 const parsed = parseParaff(code);

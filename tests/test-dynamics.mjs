@@ -1,4 +1,4 @@
-import { parseParaff, toMEI } from '@k-l-lambda/paraff/browser';
+import { parseParaff, toMEI } from '@findlab-org/paraff/browser';
 
 // Test: Dynamics output in MEI
 // EDf = forte, EDp = piano, etc.

@@ -1,2 +1,2 @@
-// Re-export from @k-l-lambda/paraff/browser
-export * from '@k-l-lambda/paraff/browser';
+// Re-export from @findlab-org/paraff/browser
+export * from '@findlab-org/paraff/browser';

@@ -1,4 +1,4 @@
-import { paraffToMEI, parseParaffScore } from '@k-l-lambda/paraff/browser';
+import { paraffToMEI, parseParaffScore } from '@findlab-org/paraff/browser';
 
 const exampleCode = `BOM K1 TN3 TD4 S1 Cg Md d Osup D4 EDp EslurL Mu g Osub D8 Bl a D8 b D8 c D8 Br EOM
 BOM K1 TN3 TD4 S1 Cg Md d Osup D4 EslurR Mu g Osub D4 Est g D4 Est EOM

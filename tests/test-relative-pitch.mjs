@@ -1,4 +1,4 @@
-import { parseParaff, toMEI } from '@k-l-lambda/paraff/browser';
+import { parseParaff, toMEI } from '@findlab-org/paraff/browser';
 
 // Understanding the Paraff relative pitch encoding:
 //

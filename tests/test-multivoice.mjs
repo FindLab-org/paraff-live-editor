@@ -1,4 +1,4 @@
-import { parseParaff, paraffToMEI } from '@k-l-lambda/paraff/browser';
+import { parseParaff, paraffToMEI } from '@findlab-org/paraff/browser';
 
 // Test various multi-voice examples from the dataset
 

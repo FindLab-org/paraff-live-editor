@@ -1,4 +1,4 @@
-import { parseParaffScore, scoreToMEI } from '@k-l-lambda/paraff/browser';
+import { parseParaffScore, scoreToMEI } from '@findlab-org/paraff/browser';
 
 // Test: Two measures, first measure sets staff 2 to bass clef (Cf)
 // Second measure should carry forward staff 2's clef correctly
