@@ -1,7 +1,7 @@
-import { parseParaff, toMEI } from '@findlab-org/paraff/browser';
+import { meiEncoder } from '@findlab-org/paraff/browser';
 
 const code = "BOM K0 TN4 TD4 S1 Cg c D4 d D4 S2 e D4 S1 f D4 VB S2 Cf c Osub D1 EOM";
-const parsed = parseParaff(code);
+const parsed = meiEncoder.parseParaff(code);
 
 console.log("Parsed voiceStaff:", parsed?.voiceStaff);
 console.log("Parsed staffN:", parsed?.staffN);
@@ -11,6 +11,6 @@ parsed?.notes[0]?.forEach((note, i) => {
 });
 
 console.log("\n--- MEI Output (note elements only) ---");
-const mei = toMEI(parsed);
+const mei = meiEncoder.toMEI(parsed);
 const noteLines = mei.split('\n').filter(line => line.includes('<note') || line.includes('<rest') || line.includes('<staff'));
 noteLines.forEach(line => console.log(line.trim()));

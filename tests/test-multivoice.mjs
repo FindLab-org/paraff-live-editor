@@ -1,4 +1,4 @@
-import { parseParaff, paraffToMEI } from '@findlab-org/paraff/browser';
+import { meiEncoder } from '@findlab-org/paraff/browser';
 
 // Test various multi-voice examples from the dataset
 
@@ -17,7 +17,7 @@ console.log('=== Testing Multi-Voice Examples ===\n');
     console.log(`\n--- Example ${i + 1} ---`);
     console.log('Input:', code.slice(0, 80) + '...');
 
-    const result = parseParaff(code);
+    const result = meiEncoder.parseParaff(code);
     if (result) {
         console.log('Parsed successfully!');
         console.log(`  Voices: ${result.notes.length}`);
@@ -33,7 +33,7 @@ console.log('=== Testing Multi-Voice Examples ===\n');
             if (voice.length > 3) console.log(`    ... and ${voice.length - 3} more`);
         });
 
-        const mei = paraffToMEI(code);
+        const mei = meiEncoder.paraffToMEI(code);
         const layerCount = (mei.match(/<layer/g) || []).length;
         console.log(`  MEI layers: ${layerCount}`);
     } else {
@@ -55,7 +55,7 @@ console.log();
 
 const lines = proposedDefault.split('\n');
 lines.forEach((line, i) => {
-    const result = parseParaff(line);
+    const result = meiEncoder.parseParaff(line);
     if (result) {
         console.log(`Measure ${i + 1}: ${result.notes.length} voices`);
         result.notes.forEach((voice, vi) => {
@@ -65,6 +65,6 @@ lines.forEach((line, i) => {
     }
 });
 
-const mei = paraffToMEI(proposedDefault);
+const mei = meiEncoder.paraffToMEI(proposedDefault);
 console.log(`\nTotal MEI length: ${mei.length} chars`);
 console.log('Has multiple layers:', (mei.match(/<layer/g) || []).length > 4 ? 'YES' : 'NO');

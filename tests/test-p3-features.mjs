@@ -1,8 +1,8 @@
-import { parseParaff, toMEI } from '@findlab-org/paraff/browser';
+import { meiEncoder } from '@findlab-org/paraff/browser';
 
 // Test: P3 features - arpeggio, ornaments, sforzando, articulations
 const code = "BOM K0 TN4 TD4 S1 Cg Earp c e g D4 Eturn d D4 Emor e D4 Esf f D4 Estm g D4 Epor a D4 EOM";
-const parsed = parseParaff(code);
+const parsed = meiEncoder.parseParaff(code);
 
 console.log("=== P3 Features Test ===");
 console.log("Paraff code:", code);
@@ -21,7 +21,7 @@ parsed.notes[0].forEach((note, i) => {
 });
 
 console.log("--- MEI Output ---");
-const mei = toMEI(parsed);
+const mei = meiEncoder.toMEI(parsed);
 
 const hasArpeg = mei.includes("<arpeg");
 const hasTurn = mei.includes("<turn");

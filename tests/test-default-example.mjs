@@ -1,4 +1,4 @@
-import { paraffToMEI, parseParaffScore } from '@findlab-org/paraff/browser';
+import { meiEncoder } from '@findlab-org/paraff/browser';
 
 const exampleCode = `BOM K1 TN3 TD4 S1 Cg Md d Osup D4 EDp EslurL Mu g Osub D8 Bl a D8 b D8 c D8 Br EOM
 BOM K1 TN3 TD4 S1 Cg Md d Osup D4 EslurR Mu g Osub D4 Est g D4 Est EOM
@@ -10,7 +10,7 @@ console.log(exampleCode);
 console.log('\n---\n');
 
 // Parse the score
-const score = parseParaffScore(exampleCode);
+const score = meiEncoder.parseParaffScore(exampleCode);
 
 if (score) {
     console.log('Parsed successfully!');
@@ -32,7 +32,7 @@ if (score) {
     });
 
     console.log('\n--- MEI Output ---\n');
-    const mei = paraffToMEI(exampleCode);
+    const mei = meiEncoder.paraffToMEI(exampleCode);
 
     // Show key parts of MEI
     console.log('Key signature:', mei.match(/key\.sig="([^"]+)"/)?.[1]);

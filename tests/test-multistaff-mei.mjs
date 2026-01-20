@@ -1,4 +1,4 @@
-import { paraffToMEI, parseParaff } from '@findlab-org/paraff/browser';
+import { meiEncoder } from '@findlab-org/paraff/browser';
 
 const code = `BOM K1 TN3 TD4 S1 Cg Md d Osup D4 EDp EslurL Mu g Osub D8 Bl a D8 b D8 c D8 Br VB S2 Cf Md g b d D2 a D4 EOM`;
 
@@ -7,7 +7,7 @@ console.log('Input:', code);
 console.log();
 
 // Parse to check structure
-const parsed = parseParaff(code);
+const parsed = meiEncoder.parseParaff(code);
 console.log('Parsed structure:');
 console.log('  staffN:', parsed.staffN);
 console.log('  staffClefs:', parsed.staffClefs);
@@ -16,7 +16,7 @@ console.log('  voices:', parsed.notes.length);
 console.log();
 
 // Generate MEI
-const mei = paraffToMEI(code);
+const mei = meiEncoder.paraffToMEI(code);
 
 // Check for multiple staffDef elements
 const staffDefMatches = mei.match(/<staffDef[^>]+>/g) || [];

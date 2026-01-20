@@ -1,9 +1,9 @@
-import { parseParaff, toMEI } from '@findlab-org/paraff/browser';
+import { meiEncoder } from '@findlab-org/paraff/browser';
 
 // Test: Dynamics output in MEI
 // EDf = forte, EDp = piano, etc.
 const code = "BOM K0 TN4 TD4 S1 Cg EDf c D4 d D4 EDp e D4 f D4 EOM";
-const parsed = parseParaff(code);
+const parsed = meiEncoder.parseParaff(code);
 
 console.log("=== Dynamics Test ===\n");
 console.log("Paraff code:", code);
@@ -14,7 +14,7 @@ parsed?.dynamics?.forEach((dyn, i) => {
 });
 
 console.log("\n--- MEI Output (note and dynam elements) ---");
-const mei = toMEI(parsed);
+const mei = meiEncoder.toMEI(parsed);
 const lines = mei.split('\n').filter(line =>
   line.includes('<note') || line.includes('<dynam') || line.includes('</note')
 );

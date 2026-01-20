@@ -32,7 +32,7 @@
 		"@codemirror/state": "^6.4.0",
 		"@codemirror/theme-one-dark": "^6.1.0",
 		"@codemirror/view": "^6.25.0",
-		"@findlab-org/paraff": "^1.0.0",
+		"@findlab-org/paraff": "^1.1.0",
 		"@k-l-lambda/music-widgets": "^1.0.1",
 		"codemirror": "^6.0.0",
 		"js-base64": "^3.7.0",

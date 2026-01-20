@@ -1,7 +1,7 @@
-import { paraffToMEI } from '@findlab-org/paraff/browser';
+import { meiEncoder } from '@findlab-org/paraff/browser';
 
 const chordCode = 'BOM K0 TN4 TD4 S1 Cg c e g D4 EOM';
-const mei = paraffToMEI(chordCode);
+const mei = meiEncoder.paraffToMEI(chordCode);
 
 console.log('Input:', chordCode);
 console.log('\nMEI Output:');

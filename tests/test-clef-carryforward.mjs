@@ -1,4 +1,4 @@
-import { parseParaffScore, scoreToMEI } from '@findlab-org/paraff/browser';
+import { meiEncoder } from '@findlab-org/paraff/browser';
 
 // Test: Two measures, first measure sets staff 2 to bass clef (Cf)
 // Second measure should carry forward staff 2's clef correctly
@@ -9,7 +9,7 @@ BOM c D4 VB c D4 EOM
 EOS
 `;
 
-const score = parseParaffScore(code);
+const score = meiEncoder.parseParaffScore(code);
 console.log("Measure 1 staffClefs:", score?.measures[0]?.staffClefs);
 console.log("Measure 2 staffClefs:", score?.measures[1]?.staffClefs);
 

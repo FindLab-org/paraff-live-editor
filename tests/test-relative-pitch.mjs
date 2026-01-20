@@ -1,4 +1,4 @@
-import { parseParaff, toMEI } from '@findlab-org/paraff/browser';
+import { meiEncoder } from '@findlab-org/paraff/browser';
 
 // Understanding the Paraff relative pitch encoding:
 //
@@ -24,7 +24,7 @@ console.log("=== Testing Relative Pitch Mode ===\n");
 // Each step has interval 1, so no octave compensation needed
 // b->c (interval -6) triggers octInc = floor(6/4)*-(-1) = +1
 const code1 = "BOM K0 TN4 TD4 S1 Cg c D8 d D8 e D8 f D8 g D8 a D8 b D8 c D8 EOM";
-const parsed1 = parseParaff(code1);
+const parsed1 = meiEncoder.parseParaff(code1);
 console.log("Test 1: Ascending scale (c d e f g a b c)");
 console.log("Expected: C4 D4 E4 F4 G4 A4 B4 C5");
 const actual1 = parsed1?.notes[0]?.map(n => `${n.pitches[0].pname.toUpperCase()}${n.pitches[0].oct}`).join(' ');
@@ -36,7 +36,7 @@ console.log(pass1 ? "✓ PASS" : "✗ FAIL");
 // interval = 4, octInc = -1, so g would be g3 without Osup
 // With one Osup: g3 + 1 = g4
 const code2 = "BOM K0 TN4 TD4 S1 Cg c D4 g Osup D4 EOM";
-const parsed2 = parseParaff(code2);
+const parsed2 = meiEncoder.parseParaff(code2);
 console.log("\nTest 2: c g Osup (encoding for c4 -> g4)");
 console.log("Expected: C4 G4");
 const actual2 = parsed2?.notes[0]?.map(n => `${n.pitches[0].pname.toUpperCase()}${n.pitches[0].oct}`).join(' ');
@@ -47,7 +47,7 @@ console.log(pass2 ? "✓ PASS" : "✗ FAIL");
 // Test 3: c to g without any octave token (c4 -> g3)
 // interval = 4, octInc = -1, so g is g3
 const code3 = "BOM K0 TN4 TD4 S1 Cg c D4 g D4 EOM";
-const parsed3 = parseParaff(code3);
+const parsed3 = meiEncoder.parseParaff(code3);
 console.log("\nTest 3: c g (no Osup - should be c4 -> g3)");
 console.log("Expected: C4 G3");
 const actual3 = parsed3?.notes[0]?.map(n => `${n.pitches[0].pname.toUpperCase()}${n.pitches[0].oct}`).join(' ');
@@ -59,7 +59,7 @@ console.log(pass3 ? "✓ PASS" : "✗ FAIL");
 // interval = 4, octInc = -1, so g would be g3 without Osub
 // With Osub: g3 - 1 = g2
 const code4 = "BOM K0 TN4 TD4 S1 Cg c D4 g Osub D4 EOM";
-const parsed4 = parseParaff(code4);
+const parsed4 = meiEncoder.parseParaff(code4);
 console.log("\nTest 4: c g Osub (c4 -> g2)");
 console.log("Expected: C4 G2");
 const actual4 = parsed4?.notes[0]?.map(n => `${n.pitches[0].pname.toUpperCase()}${n.pitches[0].oct}`).join(' ');
@@ -72,7 +72,7 @@ console.log(pass4 ? "✓ PASS" : "✗ FAIL");
 // d4 -> c4 (interval -1, no octInc)
 // c4 -> b3 (interval +6, octInc = floor(6/4)*-sign(6) = -1)
 const code5 = "BOM K0 TN4 TD4 S1 Cg c D4 d D4 c D4 b D4 EOM";
-const parsed5 = parseParaff(code5);
+const parsed5 = meiEncoder.parseParaff(code5);
 console.log("\nTest 5: c d c b (c4 d4 c4 b3)");
 console.log("Expected: C4 D4 C4 B3");
 const actual5 = parsed5?.notes[0]?.map(n => `${n.pitches[0].pname.toUpperCase()}${n.pitches[0].oct}`).join(' ');
@@ -87,7 +87,7 @@ console.log(pass5 ? "✓ PASS" : "✗ FAIL");
 // d: step=1, interval = 1-0 = 1, no octInc, D4
 // e: step=2, interval = 2-1 = 1, no octInc, E4
 const code6 = "BOM K_2 TN4 TD4 S1 Cg b D4 c D4 d D4 e D4 EOM";
-const parsed6 = parseParaff(code6);
+const parsed6 = meiEncoder.parseParaff(code6);
 console.log("\nTest 6: b c d e (key-two-flats treble part)");
 console.log("Expected: B3 C4 D4 E4");
 const actual6 = parsed6?.notes[0]?.map(n => `${n.pitches[0].pname.toUpperCase()}${n.pitches[0].oct}`).join(' ');

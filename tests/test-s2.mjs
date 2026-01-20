@@ -1,11 +1,11 @@
-import { parseParaff, paraffToMEI } from '@findlab-org/paraff/browser';
+import { meiEncoder } from '@findlab-org/paraff/browser';
 
 const code = `BOM K1 TN3 TD4 S1 Cg Md d Osup D4 EDp EslurL Mu g Osub D8 Bl a D8 b D8 c D8 Br VB S2 Cf Md g b d D2 a D4 EOM`;
 
 console.log('Input:', code);
 console.log();
 
-const result = parseParaff(code);
+const result = meiEncoder.parseParaff(code);
 console.log('Parsed:', result ? 'YES' : 'NO');
 console.log('Staff N:', result?.staffN);
 console.log('Voices:', result?.notes.length);
@@ -20,4 +20,4 @@ result?.notes.forEach((v, i) => {
     });
 });
 
-console.log('\nMEI has S2 staff:', paraffToMEI(code).includes('n="2"') ? 'YES' : 'NO');
+console.log('\nMEI has S2 staff:', meiEncoder.paraffToMEI(code).includes('n="2"') ? 'YES' : 'NO');
