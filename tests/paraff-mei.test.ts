@@ -330,6 +330,24 @@ describe('Paraff Parser', () => {
 		});
 	});
 
+	describe('Tuplets', () => {
+		test('triplet - 3 eighth notes in time of 2 (2:3)', () => {
+			// W2 means fit into 2 eighth note units - 3 eighth notes in time of 2 (quarter note)
+			// Full 4/4 measure: triplet (1 beat) + 3 quarter notes (3 beats)
+			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c W2 D8 d W D8 e W D8 f D4 g D4 a D4 EOM');
+			expect(result).not.toBeNull();
+			expect(result!.notes[0]).toHaveLength(6);
+		});
+
+		test('quadruplet - 4 eighth notes in time of 3 (3:4)', () => {
+			// W3 means fit into 3 eighth note units - 4 eighth notes in time of 3
+			// 4/4 measure: quadruplet (1.5 beats) + dotted quarter + quarter
+			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c W3 D8 d W D8 e W D8 f W D8 g D4 Dot a D4 EOM');
+			expect(result).not.toBeNull();
+			expect(result!.notes[0]).toHaveLength(6);
+		});
+	});
+
 	describe('Multiple Voices', () => {
 		test('two voices with VB separator', () => {
 			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c D2 VB e D2 EOM');
