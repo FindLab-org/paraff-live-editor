@@ -163,31 +163,32 @@ describe('Paraff Parser', () => {
 
 	describe('Articulations', () => {
 		test('staccato', () => {
-			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c Est D4 EOM');
+			// Articulations come after duration: c D4 Est
+			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c D4 Est EOM');
 			expect(result).not.toBeNull();
 			expect(result!.notes[0][0].staccato).toBe(true);
 		});
 
 		test('accent', () => {
-			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c Eac D4 EOM');
+			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c D4 Eac EOM');
 			expect(result).not.toBeNull();
 			expect(result!.notes[0][0].accent).toBe(true);
 		});
 
 		test('tenuto', () => {
-			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c Eten D4 EOM');
+			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c D4 Eten EOM');
 			expect(result).not.toBeNull();
 			expect(result!.notes[0][0].tenuto).toBe(true);
 		});
 
 		test('marcato', () => {
-			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c Emar D4 EOM');
+			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c D4 Emar EOM');
 			expect(result).not.toBeNull();
 			expect(result!.notes[0][0].marcato).toBe(true);
 		});
 
 		test('multiple articulations', () => {
-			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c Est Eac D4 EOM');
+			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c D4 Est Eac EOM');
 			expect(result).not.toBeNull();
 			expect(result!.notes[0][0].staccato).toBe(true);
 			expect(result!.notes[0][0].accent).toBe(true);
@@ -196,19 +197,21 @@ describe('Paraff Parser', () => {
 
 	describe('Ties and Slurs', () => {
 		test('tie', () => {
-			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c Etie D4 EOM');
+			// Tie comes after duration: c D4 Etie
+			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c D4 Etie EOM');
 			expect(result).not.toBeNull();
 			expect(result!.notes[0][0].tie).toBe('i');
 		});
 
 		test('slur start', () => {
-			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg EslurL c D4 EOM');
+			// Slur comes after duration: c D4 EslurL
+			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c D4 EslurL EOM');
 			expect(result).not.toBeNull();
 			expect(result!.notes[0][0].slurStart).toBe(true);
 		});
 
 		test('slur end', () => {
-			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c EslurR D4 EOM');
+			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c D4 EslurR EOM');
 			expect(result).not.toBeNull();
 			expect(result!.notes[0][0].slurEnd).toBe(true);
 		});
@@ -350,7 +353,7 @@ describe('Paraff Parser', () => {
 
 	describe('Multiple Voices', () => {
 		test('two voices with VB separator', () => {
-			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c D2 VB e D2 EOM');
+			const result = parseParaff('BOM K0 TN4 TD4 S1 Cg c D2 VB S1 e D2 EOM');
 			expect(result).not.toBeNull();
 			expect(result!.notes).toHaveLength(2);
 			expect(result!.notes[0][0].pitches[0].pname).toBe('c');
